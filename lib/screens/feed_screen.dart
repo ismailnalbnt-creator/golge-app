@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
-import 'public_profile_screen.dart';
+// import 'profile_screen.dart'; // DİKKAT: Yönlendirilecek profil sayfasının importunu buraya ekle!
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -11,581 +11,781 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  final _postController = TextEditingController();
   final _supabaseService = SupabaseService();
+  final _myUserId = Supabase.instance.client.auth.currentUser!.id;
 
-  bool _isLoading = false;
-  bool _isAnonymous = true;
+  // --- YENİ GÖNDERİ PAYLAŞMA PENCERESİ ---
+  void _showNewPostModal() {
+    final postController = TextEditingController();
+    bool isPosting = false;
+    bool isAnonymous = false; // YENİ EKLENDİ: Maske durumu
 
-  Future<void> _submitPost() async {
-    final content = _postController.text.trim();
-    if (content.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121212),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'YENİ PAYLAŞIM',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: postController,
+                    maxLines: 4,
+                    maxLength: 280,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: 'Neler düşünüyorsun? (Etiket için # kullan)',
+                      hintStyle: TextStyle(color: Colors.white38),
+                      border: InputBorder.none,
+                      counterStyle: TextStyle(color: Colors.white38),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
-    setState(() => _isLoading = true);
+                  // ALT KISIM: MASKE İKONU VE PAYLAŞ BUTONU
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // GÖLGE MODU (MASKE) BUTONU EKLENDİ
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              isAnonymous ? Icons.masks : Icons.masks_outlined,
+                              color: isAnonymous
+                                  ? Colors.tealAccent
+                                  : Colors.white38,
+                              size: 28,
+                            ),
+                            onPressed: () {
+                              setModalState(() {
+                                isAnonymous =
+                                    !isAnonymous; // Maskeyi tak / çıkar
+                              });
+                            },
+                          ),
+                          if (isAnonymous)
+                            const Text(
+                              'Gölge Modu Aktif',
+                              style: TextStyle(
+                                color: Colors.tealAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
 
-    try {
-      await _supabaseService.createPost(
-        content,
-        isAnonymous: _isAnonymous,
-        postType: 'feed',
-      );
-      _postController.clear();
-      // ignore: use_build_context_synchronously
-      FocusScope.of(context).unfocus();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+                      // PAYLAŞ BUTONU
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurpleAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: isPosting
+                            ? null
+                            : () async {
+                                final text = postController.text.trim();
+                                if (text.isEmpty) return;
+                                setModalState(() => isPosting = true);
+                                try {
+                                  // isAnonymous değişkenini artık dinamik gönderiyoruz
+                                  await _supabaseService.createPost(
+                                    text,
+                                    isAnonymous: isAnonymous,
+                                    postType: 'feed',
+                                  );
+                                  if (context.mounted) Navigator.pop(context);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Hata: $e')),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setModalState(() => isPosting = false);
+                                  }
+                                }
+                              },
+                        child: isPosting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'PAYLAŞ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _isAnonymous ? Colors.black : const Color(0xFFF8F9FA);
-    final topAreaColor = _isAnonymous ? const Color(0xFF0A0A0A) : Colors.white;
-    final textColor = _isAnonymous ? Colors.white : Colors.black87;
-    final inputBgColor = _isAnonymous
-        ? const Color(0xFF161616)
-        : const Color(0xFFF1F3F5);
-    final hintColor = _isAnonymous ? Colors.white38 : Colors.black38;
-    final borderColor = _isAnonymous ? Colors.white10 : Colors.black12;
-
-    return Container(
-      color: bgColor,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: topAreaColor,
-              border: Border(bottom: BorderSide(color: borderColor)),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        body: Column(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                border: Border(
+                  bottom: BorderSide(color: Colors.white10, width: 1),
+                ),
+              ),
+              child: const TabBar(
+                indicatorColor: Colors.deepPurpleAccent,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white54,
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                ),
+                tabs: [
+                  Tab(text: 'GENEL'),
+                  Tab(text: 'TAKİP EDİLENLER'),
+                ],
+              ),
             ),
+            Expanded(
+              child: TabBarView(
+                children: [_buildGeneralFeed(), _buildFollowingFeed()],
+              ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: Colors.deepPurpleAccent,
+          onPressed: _showNewPostModal,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // 1. SEKME: GENEL AKIŞ
+  // ==========================================
+  Widget _buildGeneralFeed() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Supabase.instance.client
+          .from('posts')
+          .stream(primaryKey: ['id'])
+          .eq('post_type', 'feed'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.deepPurpleAccent),
+          );
+        }
+        var posts = snapshot.data;
+        if (posts == null || posts.isEmpty) {
+          return const Center(
+            child: Text(
+              'Burada henüz yaprak kıpırdamıyor.',
+              style: TextStyle(color: Colors.white38),
+            ),
+          );
+        }
+
+        posts.sort(
+          (a, b) => DateTime.parse(
+            b['created_at'],
+          ).compareTo(DateTime.parse(a['created_at'])),
+        );
+
+        return _buildPostList(posts);
+      },
+    );
+  }
+
+  // ==========================================
+  // 2. SEKME: TAKİP EDİLENLER AKIŞI
+  // ==========================================
+  Widget _buildFollowingFeed() {
+    return FutureBuilder<List<String>>(
+      future: _supabaseService.getMyFollowingIds(),
+      builder: (context, followSnap) {
+        if (followSnap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.deepPurpleAccent),
+          );
+        }
+
+        final followingIds = followSnap.data ?? [];
+
+        if (followingIds.isEmpty) {
+          return const Center(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TextField(
-                  controller: _postController,
-                  maxLength: 300,
-                  maxLines: 3,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    hintText: _isAnonymous
-                        ? 'Karanlığa bir sır fısılda... (Kimliğin gizli)'
-                        : 'Herkesin göreceği bir şeyler yaz... (Açık kimlik)',
-                    hintStyle: TextStyle(color: hintColor),
-                    filled: true,
-                    fillColor: inputBgColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                Icon(Icons.person_search, color: Colors.white10, size: 64),
+                SizedBox(height: 16),
+                Text(
+                  'Henüz kimseyi takip etmiyorsun.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Switch(
-                          value: _isAnonymous,
-                          activeThumbColor: Colors.deepPurpleAccent,
-                          inactiveThumbColor: Colors.orangeAccent,
-                          // ignore: deprecated_member_use
-                          inactiveTrackColor: Colors.orangeAccent.withOpacity(
-                            0.3,
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _isAnonymous = value;
-                            });
-                          },
-                        ),
-                        Icon(
-                          _isAnonymous ? Icons.masks : Icons.wb_sunny,
-                          color: _isAnonymous
-                              ? Colors.deepPurpleAccent
-                              : Colors.orangeAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isAnonymous ? 'Gölge Modu' : 'Açık Kimlik',
-                          style: TextStyle(
-                            color: _isAnonymous
-                                ? Colors.deepPurpleAccent
-                                : Colors.orangeAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isAnonymous
-                            ? Colors.deepPurpleAccent
-                            : Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: _isLoading ? null : _submitPost,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Icon(
-                              _isAnonymous ? Icons.stream : Icons.send,
-                              size: 16,
-                            ),
-                      label: Text(_isAnonymous ? 'FISILDA' : 'PAYLAŞ'),
-                    ),
-                  ],
+                SizedBox(height: 8),
+                Text(
+                  'Genel akıştan yeni gölgeler keşfet!',
+                  style: TextStyle(color: Colors.white38, fontSize: 13),
                 ),
               ],
             ),
-          ),
+          );
+        }
 
-          Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabaseService.getFeedPostsStream(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.deepPurpleAccent,
-                    ),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Hata: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  );
-                }
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: Supabase.instance.client
+              .from('posts')
+              .stream(primaryKey: ['id'])
+              .eq('post_type', 'feed'),
+          builder: (context, postSnap) {
+            if (postSnap.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.deepPurpleAccent,
+                ),
+              );
+            }
 
-                final posts = snapshot.data;
-                if (posts == null || posts.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'Akışta henüz bir hareket yok.',
-                      style: TextStyle(
-                        color: hintColor,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
-                }
+            var allPosts = postSnap.data ?? [];
+            var followingPosts = allPosts
+                .where((post) => followingIds.contains(post['user_id']))
+                .toList();
 
-                return ListView.builder(
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    final bool isPostAnonymous = post['is_anonymous'] ?? false;
-                    final cardBgColor = isPostAnonymous
-                        ? const Color(0xFF161616)
-                        : Colors.white;
-                    // ignore: deprecated_member_use
-                    final cardBorderColor = isPostAnonymous
-                        // ignore: deprecated_member_use
-                        ? Colors.deepPurpleAccent.withOpacity(0.4)
-                        : Colors.grey.shade300;
-                    final cardTextColor = isPostAnonymous
-                        ? Colors.white
-                        : Colors.black87;
+            if (followingPosts.isEmpty) {
+              return const Center(
+                child: Text(
+                  'Takip ettiğin kişiler henüz bir şey paylaşmadı.',
+                  style: TextStyle(color: Colors.white38),
+                ),
+              );
+            }
 
-                    return Card(
-                      color: cardBgColor,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      elevation: isPostAnonymous ? 0 : 2,
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: cardBorderColor, width: 1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            followingPosts.sort(
+              (a, b) => DateTime.parse(
+                b['created_at'],
+              ).compareTo(DateTime.parse(a['created_at'])),
+            );
+
+            return _buildPostList(followingPosts);
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // YARDIMCI GÖNDERİ KARTLARI LİSTESİ
+  // ==========================================
+  Widget _buildPostList(List<Map<String, dynamic>> posts) {
+    return FutureBuilder<List<String>>(
+      future: _supabaseService.getBlockListIds(),
+      builder: (context, blockSnap) {
+        final blockListIds = blockSnap.data ?? [];
+        var visiblePosts = posts
+            .where((p) => !blockListIds.contains(p['user_id']))
+            .toList();
+
+        if (visiblePosts.isEmpty) {
+          return const Center(
+            child: Text(
+              'Gösterilecek içerik bulunamadı.',
+              style: TextStyle(color: Colors.white38),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.only(top: 8, bottom: 80),
+          itemCount: visiblePosts.length,
+          itemBuilder: (context, index) {
+            final post = visiblePosts[index];
+            final postId = post['id'];
+            final postUserId = post['user_id'];
+            final isAnon = post['is_anonymous'] ?? false;
+
+            return FutureBuilder<Map<String, dynamic>?>(
+              future: _supabaseService.getProfileById(postUserId),
+              builder: (context, profSnap) {
+                final profile = profSnap.data;
+                final fullName = isAnon
+                    ? 'Gölge Kullanıcı'
+                    : "${profile?['first_name'] ?? ''} ${profile?['last_name'] ?? ''}";
+                final username = isAnon ? '' : "@${profile?['username'] ?? ''}";
+
+                return Card(
+                  color: const Color(0xFF121212),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(color: Colors.white10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            isPostAnonymous
-                                ? const Row(
+                            // --- YÖNLENDİRME KODU EKLENEN KISIM ---
+                            GestureDetector(
+                              onTap: () {
+                                if (!isAnon) {
+                                  // Kendi profil sayfana gitme kodunu buraya yazdık!
+                                  // DİKKAT: ProfileScreen adı sende farklıysa (örn: UserProfileScreen) değiştir!
+                                  /*
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ProfileScreen(userId: postUserId), 
+                                    ),
+                                  );
+                                  */
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: isAnon
+                                        ? Colors.black
+                                        : const Color(0xFF1A1A1A),
+                                    child: Icon(
+                                      isAnon ? Icons.masks : Icons.person,
+                                      color: isAnon
+                                          ? Colors.white38
+                                          : Colors.tealAccent,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        Icons.masks,
-                                        color: Colors.deepPurpleAccent,
-                                        size: 18,
-                                      ),
-                                      SizedBox(width: 8),
                                       Text(
-                                        'Anonim Gölge',
-                                        style: TextStyle(
-                                          color: Colors.deepPurpleAccent,
+                                        fullName.trim().isEmpty
+                                            ? "İsimsiz"
+                                            : fullName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 13,
+                                          fontSize: 14,
                                         ),
                                       ),
+                                      if (!isAnon && username.length > 1)
+                                        Text(
+                                          username,
+                                          style: const TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                     ],
-                                  )
-                                : FutureBuilder<Map<String, dynamic>?>(
-                                    future: _supabaseService.getProfileById(
-                                      post['user_id'],
-                                    ),
-                                    builder: (context, profileSnapshot) {
-                                      final profile = profileSnapshot.data;
-                                      final name = profile != null
-                                          ? "${profile['first_name']} ${profile['last_name']}"
-                                          : "Kullanıcı";
-                                      final username = profile != null
-                                          ? "@${profile['username']}"
-                                          : "";
+                                  ),
+                                ],
+                              ),
+                            ),
 
-                                      return GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  PublicProfileScreen(
-                                                    userId: post['user_id'],
+                            // ------------------------------------
+                            Row(
+                              children: [
+                                if (postUserId != _myUserId && !isAnon)
+                                  FutureBuilder<List<String>>(
+                                    future: _supabaseService
+                                        .getMyFollowingIds(),
+                                    builder: (context, followingSnap) {
+                                      final myFollowings =
+                                          followingSnap.data ?? [];
+                                      final isFollowing = myFollowings.contains(
+                                        postUserId,
+                                      );
+                                      return OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 4,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          side: BorderSide(
+                                            color: isFollowing
+                                                ? Colors.white10
+                                                : Colors.deepPurpleAccent,
+                                          ),
+                                        ),
+                                        onPressed: () async {
+                                          await _supabaseService.toggleFollow(
+                                            postUserId,
+                                          );
+                                          setState(() {});
+                                        },
+                                        child: Text(
+                                          isFollowing
+                                              ? 'Takiptesin'
+                                              : 'Takip Et',
+                                          style: TextStyle(
+                                            color: isFollowing
+                                                ? Colors.white38
+                                                : Colors.deepPurpleAccent,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(
+                                    Icons.more_vert,
+                                    color: Colors.white38,
+                                    size: 20,
+                                  ),
+                                  color: const Color(0xFF1A1A1A),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  onSelected: (value) async {
+                                    if (value == 'report') {
+                                      final reasonController =
+                                          TextEditingController();
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          backgroundColor: const Color(
+                                            0xFF121212,
+                                          ),
+                                          title: const Text(
+                                            'Gönderiyi Şikayet Et',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          content: TextField(
+                                            controller: reasonController,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                            decoration: const InputDecoration(
+                                              hintText:
+                                                  'Şikayet sebebini yazın...',
+                                              hintStyle: TextStyle(
+                                                color: Colors.white38,
+                                              ),
+                                              enabledBorder:
+                                                  UnderlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color: Colors.white10,
+                                                    ),
+                                                  ),
+                                              focusedBorder:
+                                                  UnderlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color: Colors
+                                                          .deepPurpleAccent,
+                                                    ),
                                                   ),
                                             ),
-                                          );
-                                        },
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.account_circle,
-                                              color: Colors.blueGrey,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              name,
-                                              style: const TextStyle(
-                                                color: Colors.black87,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text(
+                                                'İptal',
+                                                style: TextStyle(
+                                                  color: Colors.white38,
+                                                ),
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              username,
-                                              style: const TextStyle(
-                                                color: Colors.blueGrey,
-                                                fontSize: 12,
+                                            TextButton(
+                                              onPressed: () async {
+                                                if (reasonController.text
+                                                    .trim()
+                                                    .isEmpty) {
+                                                  return;
+                                                }
+                                                await _supabaseService
+                                                    .reportPost(
+                                                      postId: postId,
+                                                      reason: reasonController
+                                                          .text
+                                                          .trim(),
+                                                    );
+                                                if (context.mounted) {
+                                                  Navigator.pop(context);
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Şikayetiniz iletildi.',
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.teal,
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                              child: const Text(
+                                                'Gönder',
+                                                style: TextStyle(
+                                                  color:
+                                                      Colors.deepPurpleAccent,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
                                       );
-                                    },
-                                  ),
-                            const SizedBox(height: 12),
-                            Text(
-                              post['content'] ?? '',
-                              style: TextStyle(
-                                color: cardTextColor,
-                                fontSize: 15,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(color: Colors.black12, height: 1),
-                            const SizedBox(height: 4),
-                            _PostActionFooter(
-                              postId: post['id'],
-                              isAnonymousCard: isPostAnonymous,
+                                    } else if (value == 'block') {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          backgroundColor: const Color(
+                                            0xFF121212,
+                                          ),
+                                          title: const Text(
+                                            'Kullanıcıyı Engelle',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          content: const Text(
+                                            'Bu kullanıcıyı engellemek istediğinize emin misiniz?',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text(
+                                                'İptal',
+                                                style: TextStyle(
+                                                  color: Colors.white38,
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: () async {
+                                                await _supabaseService
+                                                    .blockUser(postUserId);
+                                                if (context.mounted) {
+                                                  Navigator.pop(context);
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Kullanıcı engellendi.',
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.redAccent,
+                                                    ),
+                                                  );
+                                                  setState(() {});
+                                                }
+                                              },
+                                              child: const Text(
+                                                'Engelle',
+                                                style: TextStyle(
+                                                  color: Colors.redAccent,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (BuildContext context) => [
+                                    const PopupMenuItem<String>(
+                                      value: 'report',
+                                      child: Text(
+                                        'Şikayet Et',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                    ),
+                                    if (postUserId != _myUserId)
+                                      const PopupMenuItem<String>(
+                                        value: 'block',
+                                        child: Text(
+                                          'Kullanıcıyı Engelle',
+                                          style: TextStyle(
+                                            color: Colors.redAccent,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PostActionFooter extends StatelessWidget {
-  final String postId;
-  final bool isAnonymousCard;
-
-  const _PostActionFooter({
-    required this.postId,
-    required this.isAnonymousCard,
-  });
-
-  void _showCommentsSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF161616),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => _CommentsBottomSheet(postId: postId),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final supabaseService = SupabaseService();
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    final iconColor = isAnonymousCard ? Colors.white54 : Colors.black54;
-
-    return Row(
-      children: [
-        StreamBuilder<List<Map<String, dynamic>>>(
-          stream: supabaseService.getLikesStream(postId),
-          builder: (context, snapshot) {
-            final likes = snapshot.data ?? [];
-            final isLiked =
-                currentUser != null &&
-                likes.any((like) => like['user_id'] == currentUser.id);
-
-            return Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: isLiked ? Colors.redAccent : iconColor,
-                    size: 20,
-                  ),
-                  onPressed: () => supabaseService.toggleLike(postId),
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-                ),
-                Text(
-                  '${likes.length}',
-                  style: TextStyle(color: iconColor, fontSize: 13),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(width: 24),
-        StreamBuilder<List<Map<String, dynamic>>>(
-          stream: supabaseService.getCommentsStream(postId),
-          builder: (context, snapshot) {
-            final comments = snapshot.data ?? [];
-            return Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.chat_bubble_outline,
-                    color: iconColor,
-                    size: 20,
-                  ),
-                  onPressed: () => _showCommentsSheet(context),
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-                ),
-                Text(
-                  '${comments.length}',
-                  style: TextStyle(color: iconColor, fontSize: 13),
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _CommentsBottomSheet extends StatefulWidget {
-  final String postId;
-  const _CommentsBottomSheet({required this.postId});
-
-  @override
-  State<_CommentsBottomSheet> createState() => _CommentsBottomSheetState();
-}
-
-class _CommentsBottomSheetState extends State<_CommentsBottomSheet> {
-  final _commentController = TextEditingController();
-  final _supabaseService = SupabaseService();
-
-  Future<void> _sendComment() async {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    await _supabaseService.createComment(widget.postId, text);
-    _commentController.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Yorumlar',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.4,
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabaseService.getCommentsStream(widget.postId),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.deepPurpleAccent,
-                    ),
-                  );
-                }
-
-                final comments = snapshot.data!;
-                if (comments.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'İlk yorumu sen yap.',
-                      style: TextStyle(color: Colors.white38),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: comments.length,
-                  itemBuilder: (context, index) {
-                    final comment = comments[index];
-                    return FutureBuilder<Map<String, dynamic>?>(
-                      future: _supabaseService.getProfileById(
-                        comment['user_id'],
-                      ),
-                      builder: (context, profileSnap) {
-                        final name =
-                            profileSnap.data?['first_name'] ?? 'Kullanıcı';
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.white10,
-                                child: Icon(
-                                  Icons.person,
-                                  size: 14,
-                                  color: Colors.white54,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 12),
+                        Text(
+                          post['content'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: Colors.white10, height: 1),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            StreamBuilder<List<Map<String, dynamic>>>(
+                              stream: _supabaseService.getLikesStream(postId),
+                              builder: (context, likeSnapshot) {
+                                final likes = likeSnapshot.data ?? [];
+                                final isLiked = likes.any(
+                                  (l) => l['user_id'] == _myUserId,
+                                );
+                                return Row(
                                   children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        isLiked
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: isLiked
+                                            ? Colors.redAccent
+                                            : Colors.white38,
+                                        size: 18,
+                                      ),
+                                      onPressed: () =>
+                                          _supabaseService.toggleLike(postId),
+                                    ),
                                     Text(
-                                      name,
-                                      style: const TextStyle(
-                                        color: Colors.deepPurpleAccent,
+                                      '${likes.length}',
+                                      style: TextStyle(
+                                        color: isLiked
+                                            ? Colors.redAccent
+                                            : Colors.white38,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 16),
+                            StreamBuilder<List<Map<String, dynamic>>>(
+                              stream: _supabaseService.getCommentsStream(
+                                postId,
+                              ),
+                              builder: (context, commentSnapshot) {
+                                final comments = commentSnapshot.data ?? [];
+                                return Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.chat_bubble_outline,
+                                        color: Colors.white38,
+                                        size: 18,
+                                      ),
+                                      onPressed: () {},
+                                    ),
                                     Text(
-                                      comment['content'] ?? '',
+                                      '${comments.length}',
                                       style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
+                                        color: Colors.white38,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const Divider(color: Colors.white12, height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Bir şeyler yaz...',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      filled: true,
-                      fillColor: const Color(0xFF2A2A2A),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none,
-                      ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.deepPurpleAccent,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                    onPressed: _sendComment,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -351,4 +351,285 @@ class SupabaseService {
         .eq('chat_id', chatId)
         .neq('sender_id', myId);
   }
+
+  // ==========================================
+  // BİLDİRİM MERKEZİ (HABERCİ) İŞLEMLERİ
+  // ==========================================
+
+  // 1. Sağ üstteki zil ikonunda kaç okunmamış bildirim olduğunu canlı sayar
+  Stream<int> getUnreadNotificationsCountStream() {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return Stream.value(0);
+
+    return client
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .map(
+          (notifications) => notifications
+              .where((n) => n['user_id'] == myId && n['is_read'] == false)
+              .length,
+        );
+  }
+
+  // 2. Bildirimler sayfasına girildiğinde tüm bildirimleri listeler
+  Stream<List<Map<String, dynamic>>> getNotificationsStream() {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return const Stream.empty();
+
+    return client
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map(
+          (notifications) =>
+              notifications.where((n) => n['user_id'] == myId).toList(),
+        );
+  }
+
+  // 3. Bildirimler sayfasına girildiği an hepsini "okundu" (is_read = true) yapar
+  Future<void> markAllNotificationsAsRead() async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return;
+
+    await client
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('user_id', myId)
+        .eq('is_read', false);
+  }
+
+  // 4. Biri beğeni/yorum yaptığında bildirim fırlatan gizli postacı
+  Future<void> sendNotification({
+    required String targetUserId,
+    required String type,
+    required String content,
+  }) async {
+    final myId = client.auth.currentUser?.id;
+    // Kişi kendi gönderisini beğenirse kendine bildirim atmasın diye kontrol:
+    if (myId == null || myId == targetUserId) return;
+
+    await client.from('notifications').insert({
+      'user_id': targetUserId,
+      'sender_id': myId,
+      'type': type,
+      'content': content,
+      'is_read': false,
+    });
+  }
+
+  // ==========================================
+  // ENLER (TRENDLER) İŞLEMLERİ
+  // ==========================================
+  Future<List<Map<String, dynamic>>> getTrendingPosts(String filterType) async {
+    DateTime now = DateTime.now();
+    DateTime? fromDate;
+
+    // Filtreye göre başlangıç tarihini belirliyoruz
+    if (filterType == 'daily') {
+      fromDate = now.subtract(const Duration(days: 1));
+    } else if (filterType == 'weekly') {
+      fromDate = now.subtract(const Duration(days: 7));
+    } else if (filterType == 'monthly') {
+      fromDate = now.subtract(const Duration(days: 30));
+    }
+
+    // 1. ADIM: Sorguyu sadece tabloyu seçerek başlatıyoruz (Sıralama yok)
+    var query = client.from('trending_posts').select();
+
+    // 2. ADIM: FİLTRELEME (Önce filtre eklenmek zorundadır)
+    if (fromDate != null) {
+      query = query.gte('created_at', fromDate.toIso8601String());
+    }
+
+    // 3. ADIM: SIRALAMA VE LİMİT (En son eklenir ve çalıştırılır)
+    final response = await query
+        .order('like_count', ascending: false) // En çok beğenilen en üstte
+        .order(
+          'created_at',
+          ascending: false,
+        ) // Beğeniler eşitse yeni olan üstte
+        .limit(50); // Performans için ilk 50'yi al
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+  // ==========================================
+  // ETİKET (HASHTAG) İŞLEMLERİ
+  // ==========================================
+
+  // 1. En çok kullanılan 50 etiketi getirir
+  Future<List<Map<String, dynamic>>> getTrendingHashtags() async {
+    final response = await client.from('trending_hashtags').select();
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  // 2. Sadece belirli bir etiketi (örn: #gölge) içeren gönderileri canlı getirir
+  Stream<List<Map<String, dynamic>>> getPostsByHashtagStream(String hashtag) {
+    return client
+        .from('posts')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map(
+          (posts) => posts.where((p) {
+            final content = (p['content'] ?? '').toString().toLowerCase();
+            return content.contains('#${hashtag.toLowerCase()}');
+          }).toList(),
+        );
+  }
+
+  // ==========================================
+  // TAKİP SİSTEMİ (FOLLOWERS)
+  // ==========================================
+
+  // 1. Birini takip et veya takibi bırak
+  Future<void> toggleFollow(String targetUserId) async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null || myId == targetUserId) {
+      return; // Kendimizi takip edemeyiz
+    }
+
+    // Önce takip edip etmediğimize bakıyoruz
+    final existing = await client
+        .from('followers')
+        .select()
+        .eq('follower_id', myId)
+        .eq('following_id', targetUserId)
+        .maybeSingle();
+
+    if (existing != null) {
+      // Zaten takip ediyorsa takipten çık (Sil)
+      await client
+          .from('followers')
+          .delete()
+          .eq('follower_id', myId)
+          .eq('following_id', targetUserId);
+    } else {
+      // Takip etmiyorsa listeye ekle
+      await client.from('followers').insert({
+        'follower_id': myId,
+        'following_id': targetUserId,
+      });
+
+      // BONUS: Karşı tarafa anında bildirim fırlatalım!
+      await sendNotification(
+        targetUserId: targetUserId,
+        type: 'follow',
+        content: 'Seni takip etmeye başladı.',
+      );
+    }
+  }
+
+  // 2. Sadece benim takip ettiğim kişilerin ID'lerini getir
+  Future<List<String>> getMyFollowingIds() async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return [];
+
+    final response = await client
+        .from('followers')
+        .select('following_id')
+        .eq('follower_id', myId);
+
+    return response.map((e) => e['following_id'] as String).toList();
+  }
+
+  // ==========================================
+  // GÜVENLİK VE MODERASYON (ŞİKAYET & ENGEL)
+  // ==========================================
+
+  // 1. Gönderi Şikayet Etme
+  Future<void> reportPost({
+    required String postId,
+    required String reason,
+  }) async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return;
+
+    await client.from('reports').insert({
+      'post_id': postId,
+      'reporter_id': myId,
+      'reason': reason,
+    });
+  }
+
+  // 2. Kullanıcı Engelleme
+  Future<void> blockUser(String blockedUserId) async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null || myId == blockedUserId) return;
+
+    await client.from('blocks').insert({
+      'blocker_id': myId,
+      'blocked_id': blockedUserId,
+    });
+
+    // Engelleyince otomatik olarak takipten de çıkalım (Varsa temizlik)
+    await client
+        .from('followers')
+        .delete()
+        .eq('follower_id', myId)
+        .eq('following_id', blockedUserId);
+    await client
+        .from('followers')
+        .delete()
+        .eq('follower_id', blockedUserId)
+        .eq('following_id', myId);
+  }
+
+  // 3. Engeli Kaldırma
+  Future<void> unblockUser(String blockedUserId) async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return;
+
+    await client
+        .from('blocks')
+        .delete()
+        .eq('blocker_id', myId)
+        .eq('blocked_id', blockedUserId);
+  }
+
+  // 4. Engellediğim Kişilerin Listesini Getir
+  Future<List<Map<String, dynamic>>> getBlockedUsers() async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return [];
+
+    // Önce engellediğim kişilerin ID'lerini çekiyorum
+    final response = await client
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', myId);
+    final blockedIds = response.map((e) => e['blocked_id'] as String).toList();
+
+    if (blockedIds.isEmpty) return [];
+
+    // Bu ID'lere ait profil bilgilerini (isim, kullanıcı adı) getiriyorum
+    final profiles = await client
+        .from('profiles')
+        .select()
+        .inFilter('id', blockedIds); // <- DOĞRUSU BU
+    return List<Map<String, dynamic>>.from(profiles);
+  }
+
+  // 5. Karşılıklı Engel Kontrol Listesi (Akışta postları gizlemek için kullanacağız)
+  Future<List<String>> getBlockListIds() async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return [];
+
+    // Hem benim engellediklerim hem de beni engelleyenler
+    final myBlocks = await client
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', myId);
+    final whoBlockedMe = await client
+        .from('blocks')
+        .select('blocker_id')
+        .eq('blocked_id', myId);
+
+    final List<String> ids = [];
+    for (var b in myBlocks) {
+      ids.add(b['blocked_id'] as String);
+    }
+    for (var b in whoBlockedMe) {
+      ids.add(b['blocker_id'] as String);
+    }
+
+    return ids;
+  }
 }
