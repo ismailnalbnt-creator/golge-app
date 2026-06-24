@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
 import 'feed_screen.dart';
-import 'court_screen.dart'; // Yeni mahkeme salonumuzu ekledik
+import 'profile_screen.dart';
+import 'sirdas_screen.dart';
+import 'radar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,42 +12,85 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  // Varsayılan olarak 1 yani "Akış" ekranı açık açılacak.
+  int _currentIndex = 1;
 
-  final List<Widget> _pages = [
+  final List<Widget> _screens = [
+    const RadarScreen(),
     const FeedScreen(),
-    const CourtScreen(), // İŞTE BURASI DEĞİŞTİ: Artık boş yazı değil, canlı mahkeme ekranı var!
+    const SirdasScreen(),
     const ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
+        backgroundColor: Colors.black,
         title: const Text(
           'G Ö L G E',
-          style: TextStyle(letterSpacing: 5, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 6,
+            fontSize: 18,
+          ),
         ),
-        backgroundColor: Colors.black,
         centerTitle: true,
+        elevation: 0,
+        automaticallyImplyLeading: false,
       ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.grey.shade800,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.stream), label: 'Akış'),
-          BottomNavigationBarItem(icon: Icon(Icons.gavel), label: 'Mahkeme'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.white10, width: 1)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.black,
+          selectedItemColor: Colors.deepPurpleAccent,
+          unselectedItemColor: Colors.white54,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          iconSize: 22,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.radar),
+              ),
+              label: 'Çevrendekiler',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.dynamic_feed),
+              ),
+              label: 'Akış',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.gavel),
+              ),
+              label: 'Sırdaş',
+            ),
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.person),
+              ),
+              label: 'Profil',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -13,49 +13,145 @@ class ProfileScreen extends StatelessWidget {
 
     return Column(
       children: [
-        // --- 1. KISIM: PROFİL BİLGİLERİ VE ÇIKIŞ BUTONU ---
-        Container(
-          padding: const EdgeInsets.all(24.0),
-          decoration: const BoxDecoration(
-            color: Colors.black,
-            border: Border(bottom: BorderSide(color: Colors.white10)),
-          ),
-          child: Column(
-            children: [
-              const Icon(Icons.account_circle, size: 80, color: Colors.white54),
-              const SizedBox(height: 12),
-              Text(
-                user?.email ?? 'Bilinmeyen Gölge',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+        // --- 1. KISIM: GERÇEK KİMLİK BİLGİLERİ PANELİ ---
+        FutureBuilder<Map<String, dynamic>?>(
+          future: supabaseService.getCurrentUserProfile(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: 180,
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.deepPurpleAccent,
+                  ),
                 ),
+              );
+            }
+
+            final profile = snapshot.data;
+            final fullName = profile != null
+                ? "${profile['first_name']} ${profile['last_name']}"
+                : "Bilinmeyen Gölge";
+            final username = profile != null ? "@${profile['username']}" : "";
+            final birthDateStr =
+                profile != null && profile['birth_date'] != null
+                ? "${DateTime.parse(profile['birth_date']).day}/${DateTime.parse(profile['birth_date']).month}/${DateTime.parse(profile['birth_date']).year}"
+                : "-";
+
+            return Container(
+              padding: const EdgeInsets.all(24.0),
+              decoration: const BoxDecoration(
+                color: Colors.black,
+                border: Border(bottom: BorderSide(color: Colors.white10)),
               ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  side: const BorderSide(color: Colors.redAccent),
-                ),
-                icon: const Icon(Icons.logout, size: 18),
-                label: const Text('Maskeyi Çıkar (Çıkış)'),
-                onPressed: () async {
-                  await supabaseService.signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const AuthScreen(),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CircleAvatar(
+                        radius: 36,
+                        backgroundColor: Color(0xFF1E1E1E),
+                        child: Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.white54,
+                        ),
                       ),
-                    );
-                  }
-                },
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fullName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              username,
+                              style: const TextStyle(
+                                color: Colors.deepPurpleAccent,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Hiyerarşik detaylar
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.cake,
+                                  size: 14,
+                                  color: Colors.white38,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  birthDateStr,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                const Icon(
+                                  Icons.email,
+                                  size: 14,
+                                  color: Colors.white38,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    user?.email ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      side: const BorderSide(color: Colors.redAccent),
+                      minimumSize: const Size(double.infinity, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout, size: 16),
+                    label: const Text('Maskeyi Çıkar (Çıkış Yap)'),
+                    onPressed: () async {
+                      await supabaseService.signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) => const AuthScreen(),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
 
-        // --- 2. KISIM: KENDİ FISILTILARIM (ARŞİV BAŞLIĞI) ---
+        // --- 2. KISIM: ARŞİV BAŞLIĞI ---
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -66,11 +162,12 @@ class ProfileScreen extends StatelessWidget {
               color: Colors.deepPurpleAccent,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.5,
+              fontSize: 12,
             ),
           ),
         ),
 
-        // --- 3. KISIM: KENDİ GÖNDERİLERİMİ LİSTELEME ---
+        // --- 3. KISIM: KİŞİSEL ARŞİVİN LİSTELENMESİ ---
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: supabaseService.getMyPostsStream(),
@@ -82,7 +179,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 );
               }
-
               if (snapshot.hasError) {
                 return Center(
                   child: Text(
@@ -93,11 +189,10 @@ class ProfileScreen extends StatelessWidget {
               }
 
               final posts = snapshot.data;
-
               if (posts == null || posts.isEmpty) {
                 return const Center(
                   child: Text(
-                    'Henüz karanlığa hiçbir şey fısıldamadın.',
+                    'Henüz hiçbir şey fısıldamadın.',
                     style: TextStyle(
                       color: Colors.white54,
                       fontStyle: FontStyle.italic,
@@ -110,6 +205,8 @@ class ProfileScreen extends StatelessWidget {
                 itemCount: posts.length,
                 itemBuilder: (context, index) {
                   final post = posts[index];
+                  final bool isPostAnonymous = post['is_anonymous'] ?? false;
+
                   return Card(
                     color: const Color(0xFF1A1A1A),
                     margin: const EdgeInsets.symmetric(
@@ -118,7 +215,13 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      side: const BorderSide(color: Colors.white12),
+                      // ignore: deprecated_member_use
+                      side: BorderSide(
+                        color: isPostAnonymous
+                            // ignore: deprecated_member_use
+                            ? Colors.deepPurpleAccent.withOpacity(0.3)
+                            : Colors.white12,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Stack(
@@ -128,14 +231,40 @@ class ProfileScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Silme butonu ile çakışmasın diye sağdan biraz boşluk bırakıyoruz
+                              Row(
+                                children: [
+                                  Icon(
+                                    isPostAnonymous
+                                        ? Icons.masks
+                                        : Icons.account_circle,
+                                    color: isPostAnonymous
+                                        ? Colors.deepPurpleAccent
+                                        : Colors.white54,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isPostAnonymous
+                                        ? 'Gölge Paylaşımı'
+                                        : 'Açık Paylaşım',
+                                    style: TextStyle(
+                                      color: isPostAnonymous
+                                          ? Colors.deepPurpleAccent
+                                          : Colors.white54,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
                               Padding(
                                 padding: const EdgeInsets.only(right: 40.0),
                                 child: Text(
                                   post['content'] ?? '',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
+                                    fontSize: 15,
                                   ),
                                 ),
                               ),
@@ -145,7 +274,6 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         ),
 
-                        // SİLME (DOSYAYI YAK) BUTONU - Sağ Üst Köşe
                         Positioned(
                           top: 4,
                           right: 4,
@@ -153,11 +281,9 @@ class ProfileScreen extends StatelessWidget {
                             icon: const Icon(
                               Icons.local_fire_department,
                               color: Colors.redAccent,
-                              size: 20,
+                              size: 18,
                             ),
-                            tooltip: 'Delili Yok Et',
                             onPressed: () async {
-                              // Silmeden önce ufak bir emin misin sorusu
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (context) => AlertDialog(
@@ -167,7 +293,7 @@ class ProfileScreen extends StatelessWidget {
                                     style: TextStyle(color: Colors.white),
                                   ),
                                   content: const Text(
-                                    'Bu sırrı sonsuza dek karanlığa gömmek istediğine emin misin?',
+                                    'Süreci durdurup bu delili imha etmek istediğine emin misin?',
                                     style: TextStyle(color: Colors.grey),
                                   ),
                                   actions: [
@@ -193,7 +319,6 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               );
 
-                              // Eğer kullanıcı 'İmha Et' dediyse sil
                               if (confirm == true) {
                                 try {
                                   await supabaseService.deletePost(post['id']);
@@ -245,19 +370,25 @@ class _VoteStats extends StatelessWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Icon(Icons.arrow_upward, color: Colors.amber, size: 16),
+            const Icon(Icons.arrow_upward, color: Colors.amber, size: 14),
             const SizedBox(width: 4),
-            Text('$lightVotes', style: const TextStyle(color: Colors.amber)),
-            const SizedBox(width: 16),
+            Text(
+              '$lightVotes',
+              style: const TextStyle(color: Colors.amber, fontSize: 12),
+            ),
+            const SizedBox(width: 12),
             const Icon(
               Icons.arrow_downward,
               color: Colors.deepPurpleAccent,
-              size: 16,
+              size: 14,
             ),
             const SizedBox(width: 4),
             Text(
               '$shadowVotes',
-              style: const TextStyle(color: Colors.deepPurpleAccent),
+              style: const TextStyle(
+                color: Colors.deepPurpleAccent,
+                fontSize: 12,
+              ),
             ),
           ],
         );

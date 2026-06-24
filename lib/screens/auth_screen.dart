@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
+import 'profile_setup_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -14,9 +15,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final _supabaseService = SupabaseService();
 
   bool _isLoading = false;
-  bool _isLogin = true; // True: Giriş Yap ekranı, False: Kayıt Ol ekranı
+  bool _isLogin = true;
 
-  // Kayıt veya Giriş işlemini tetikleyen fonksiyon
   Future<void> _authenticate() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -37,9 +37,13 @@ class _AuthScreenState extends State<AuthScreen> {
         await _supabaseService.signIn(email, password);
       } else {
         await _supabaseService.signUp(email, password);
+        // E-posta onayı kaldırıldığı için doğrudan Profil Kurulumuna yönlendiriyoruz
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+          );
+        }
       }
-      // NOT: Sayfa yönlendirmesi (Navigator) yapmıyoruz!
-      // Çünkü en başta kurduğumuz 'AuthGate' güvenlik görevlisi, giriş yapıldığını anında fark edip bizi otomatik olarak Ana Sayfaya alacak.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -56,14 +60,12 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A), // Ekstra karanlık arka plan
+      backgroundColor: const Color(0xFF0A0A0A),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Container(
-            constraints: const BoxConstraints(
-              maxWidth: 400,
-            ), // Web'de ekranın ortasında şık bir kutu olarak durmasını sağlar
+            constraints: const BoxConstraints(maxWidth: 400),
             padding: const EdgeInsets.all(40.0),
             decoration: BoxDecoration(
               color: const Color(0xFF121212),
@@ -81,11 +83,9 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Logo / İkon Kısmı
                 const Icon(Icons.masks, size: 70, color: Colors.white54),
                 const SizedBox(height: 24),
 
-                // Başlık
                 const Text(
                   'G Ö L G E',
                   style: TextStyle(
@@ -105,7 +105,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 40),
 
-                // E-Posta Kutusu
                 TextField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
@@ -127,7 +126,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Şifre Kutusu
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
@@ -150,7 +148,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Ana Aksiyon Butonu
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -185,7 +182,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Sayfa Değiştirme (Giriş <-> Kayıt) Butonu
                 TextButton(
                   onPressed: () {
                     setState(() {
