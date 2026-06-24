@@ -62,7 +62,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       ),
       body: Column(
         children: [
-          // MESAJLARIN LİSTELENDİĞİ ALAN
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _supabaseService.getMessagesStream(widget.chatId),
@@ -74,6 +73,12 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 }
 
                 final messages = snapshot.data ?? [];
+
+                if (messages.isNotEmpty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _supabaseService.markMessagesAsRead(widget.chatId);
+                  });
+                }
 
                 if (messages.isEmpty) {
                   return const Center(
@@ -127,7 +132,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             ),
           ),
 
-          // MESAJ YAZMA ÇUBUĞU
           Container(
             padding: EdgeInsets.only(
               left: 16,

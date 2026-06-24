@@ -70,7 +70,7 @@ class SupabaseService {
 
     await client
         .from('profiles')
-        .update({'is_location_visible': isVisible, 'lat': ?lat, 'lng': ?lng})
+        .update({'is_location_visible': isVisible, 'lat': lat, 'lng': lng})
         .eq('id', user.id);
   }
 
@@ -260,11 +260,10 @@ class SupabaseService {
     });
   }
 
-  // --- ÖZEL MESAJLAŞMA (CHAT) İŞLEMLERİ - DART FİLTRELEMESİ İLE GÜNCELLENDİ ---
+  // --- ÖZEL MESAJLAŞMA (CHAT) İŞLEMLERİ ---
   Future<String> getOrCreateChat(String otherUserId) async {
     final myId = client.auth.currentUser!.id;
 
-    // GÜNCELLENDİ: Sadece benim dahil olduğum odaları çekiyoruz (Hata riski sıfırlandı)
     final List<dynamic> response = await client
         .from('chats')
         .select()
@@ -272,7 +271,6 @@ class SupabaseService {
 
     final chats = List<Map<String, dynamic>>.from(response);
 
-    // Gelen odaların içinde, karşı tarafla benim aramda olan tam eşleşmeyi Dart ile arıyoruz
     Map<String, dynamic>? existingChat;
     for (var chat in chats) {
       if ((chat['user1_id'] == myId && chat['user2_id'] == otherUserId) ||
@@ -283,10 +281,9 @@ class SupabaseService {
     }
 
     if (existingChat != null) {
-      return existingChat['id']; // Oda zaten varsa direkt ID'sini dönüyoruz
+      return existingChat['id'];
     }
 
-    // Yoksa sıfırdan oda oluşturup ID'sini dönüyoruz
     final newChat = await client
         .from('chats')
         .insert({'user1_id': myId, 'user2_id': otherUserId})
@@ -304,6 +301,7 @@ class SupabaseService {
       'chat_id': chatId,
       'sender_id': user.id,
       'content': content,
+      'is_read': false,
     });
   }
 
@@ -313,5 +311,44 @@ class SupabaseService {
         .stream(primaryKey: ['id'])
         .eq('chat_id', chatId)
         .order('created_at', ascending: true);
+  }
+
+  Stream<List<Map<String, dynamic>>> getInboxChatsStream() {
+    final myId = client.auth.currentUser!.id;
+    return client
+        .from('chats')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map(
+          (chats) => chats
+              .where(
+                (chat) => chat['user1_id'] == myId || chat['user2_id'] == myId,
+              )
+              .toList(),
+        );
+  }
+
+  Stream<int> getUnreadChatsCountStream() {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return Stream.value(0);
+
+    return client.from('messages').stream(primaryKey: ['id']).map((messages) {
+      final unreadChatIds = messages
+          .where((m) => m['sender_id'] != myId && m['is_read'] == false)
+          .map((m) => m['chat_id'])
+          .toSet();
+      return unreadChatIds.length;
+    });
+  }
+
+  Future<void> markMessagesAsRead(String chatId) async {
+    final myId = client.auth.currentUser?.id;
+    if (myId == null) return;
+
+    await client
+        .from('messages')
+        .update({'is_read': true})
+        .eq('chat_id', chatId)
+        .neq('sender_id', myId);
   }
 }

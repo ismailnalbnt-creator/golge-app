@@ -3,6 +3,8 @@ import 'feed_screen.dart';
 import 'profile_screen.dart';
 import 'sirdas_screen.dart';
 import 'radar_screen.dart';
+import 'inbox_screen.dart';
+import '../services/supabase_service.dart'; // Servisi bağladık
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,8 +14,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Varsayılan olarak 1 yani "Akış" ekranı açık açılacak.
   int _currentIndex = 1;
+  final _supabaseService = SupabaseService(); // Servis nesnemizi tanımladık
 
   final List<Widget> _screens = [
     const RadarScreen(),
@@ -40,6 +42,45 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 0,
         automaticallyImplyLeading: false,
+        actions: [
+          // GÜNCELLENDİ: Anlık Okunmamış Mesaj Sayıcılı DM İkonu
+          StreamBuilder<int>(
+            stream: _supabaseService.getUnreadChatsCountStream(),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+
+              return Badge(
+                label: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                isLabelVisible:
+                    unreadCount >
+                    0, // Okunmamış mesaj varsa balonu göster, yoksa gizle
+                backgroundColor: Colors.redAccent,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.near_me_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InboxScreen(),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
