@@ -84,7 +84,7 @@ class SupabaseService {
         );
   }
 
-  // --- GÖNDERİ İŞLEMLERİ (AKIŞ VE SIRDAŞ) ---
+  // --- GÖNDERİ İŞLEMLERİ (AKIŞ VE SIRDAŞ - KÜRESEL GÖLGE EKLENDİ) ---
   Future<void> createPost(
     String content, {
     bool isAnonymous = false,
@@ -93,10 +93,18 @@ class SupabaseService {
     final user = client.auth.currentUser;
     if (user == null) throw Exception('Giriş yapmalısın.');
 
+    final profile = await client
+        .from('profiles')
+        .select('is_shadow_mode')
+        .eq('id', user.id)
+        .maybeSingle();
+    final bool isGlobalShadowActive = profile?['is_shadow_mode'] ?? false;
+    final bool finalAnonymous = isGlobalShadowActive || isAnonymous;
+
     await client.from('posts').insert({
       'user_id': user.id,
       'content': content,
-      'is_anonymous': isAnonymous,
+      'is_anonymous': finalAnonymous,
       'post_type': postType,
     });
   }
@@ -171,6 +179,7 @@ class SupabaseService {
         .eq('post_id', postId)
         .eq('user_id', user.id)
         .maybeSingle();
+
     if (existingLike != null) {
       await client.from('likes').delete().eq('id', existingLike['id']);
     } else {
@@ -178,6 +187,19 @@ class SupabaseService {
         'post_id': postId,
         'user_id': user.id,
       });
+
+      final postData = await client
+          .from('posts')
+          .select('user_id')
+          .eq('id', postId)
+          .maybeSingle();
+      if (postData != null && postData['user_id'] != user.id) {
+        await sendNotification(
+          targetUserId: postData['user_id'] as String,
+          type: 'like',
+          content: 'Bir gölge gönderini beğendi.',
+        );
+      }
     }
   }
 
@@ -203,6 +225,7 @@ class SupabaseService {
         .eq('post_id', postId)
         .eq('user_id', user.id)
         .maybeSingle();
+
     if (existingVote != null) {
       if (existingVote['vote_type'] == voteType) {
         await client.from('votes').delete().eq('id', existingVote['id']);
@@ -238,11 +261,33 @@ class SupabaseService {
   Future<void> createComment(String postId, String content) async {
     final user = client.auth.currentUser;
     if (user == null) throw Exception('Yorum yapmak için giriş yapmalısın.');
+
+    final profile = await client
+        .from('profiles')
+        .select('is_shadow_mode')
+        .eq('id', user.id)
+        .maybeSingle();
+    final bool isGlobalShadowActive = profile?['is_shadow_mode'] ?? false;
+
     await client.from('comments').insert({
       'post_id': postId,
       'user_id': user.id,
       'content': content,
+      'is_anonymous': isGlobalShadowActive,
     });
+
+    final postData = await client
+        .from('posts')
+        .select('user_id')
+        .eq('id', postId)
+        .maybeSingle();
+    if (postData != null && postData['user_id'] != user.id) {
+      await sendNotification(
+        targetUserId: postData['user_id'] as String,
+        type: 'comment',
+        content: 'Gönderine bir yorum yaptı.',
+      );
+    }
   }
 
   Stream<List<Map<String, dynamic>>> getCommentsStream(String postId) {
@@ -260,8 +305,14 @@ class SupabaseService {
     });
   }
 
-  // --- ÖZEL MESAJLAŞMA (CHAT) İŞLEMLERİ ---
-  Future<String> getOrCreateChat(String otherUserId) async {
+  // --- ÖZEL MESAJLAŞMA (TİTANYUM ZIRHI - GERİYE DÖNÜK UYUMLU) ---
+
+  // DİKKAT: otherUserId artık zorunlu (ilk parametre). iAmAnonymous ve isOtherAnonymous varsayılan olarak false (eski ekranlar çökmesin diye)
+  Future<String> getOrCreateChat(
+    String otherUserId, {
+    bool iAmAnonymous = false,
+    bool isOtherAnonymous = false,
+  }) async {
     final myId = client.auth.currentUser!.id;
 
     final List<dynamic> response = await client
@@ -272,11 +323,25 @@ class SupabaseService {
     final chats = List<Map<String, dynamic>>.from(response);
 
     Map<String, dynamic>? existingChat;
+
     for (var chat in chats) {
-      if ((chat['user1_id'] == myId && chat['user2_id'] == otherUserId) ||
-          (chat['user1_id'] == otherUserId && chat['user2_id'] == myId)) {
-        existingChat = chat;
-        break;
+      final isUser1Me = chat['user1_id'] == myId;
+      final isUser2Other =
+          (isUser1Me ? chat['user2_id'] : chat['user1_id']) == otherUserId;
+
+      if (isUser2Other) {
+        final myAnonStateInChat = isUser1Me
+            ? (chat['user1_is_anon'] ?? false)
+            : (chat['user2_is_anon'] ?? false);
+        final otherAnonStateInChat = isUser1Me
+            ? (chat['user2_is_anon'] ?? false)
+            : (chat['user1_is_anon'] ?? false);
+
+        if (myAnonStateInChat == iAmAnonymous &&
+            otherAnonStateInChat == isOtherAnonymous) {
+          existingChat = chat;
+          break;
+        }
       }
     }
 
@@ -286,21 +351,40 @@ class SupabaseService {
 
     final newChat = await client
         .from('chats')
-        .insert({'user1_id': myId, 'user2_id': otherUserId})
+        .insert({
+          'user1_id': myId,
+          'user2_id': otherUserId,
+          'user1_is_anon': iAmAnonymous,
+          'user2_is_anon': isOtherAnonymous,
+        })
         .select()
         .single();
 
     return newChat['id'];
   }
 
-  Future<void> sendMessage(String chatId, String content) async {
+  // DİKKAT: chatId ve content ilk parametreler. isAnonymous varsayılan olarak false.
+  Future<void> sendMessage(
+    String chatId,
+    String content, {
+    bool isAnonymous = false,
+  }) async {
     final user = client.auth.currentUser;
     if (user == null) return;
+
+    final profile = await client
+        .from('profiles')
+        .select('is_shadow_mode')
+        .eq('id', user.id)
+        .maybeSingle();
+    final bool isGlobalShadowActive = profile?['is_shadow_mode'] ?? false;
+    final finalAnonymous = isGlobalShadowActive || isAnonymous;
 
     await client.from('messages').insert({
       'chat_id': chatId,
       'sender_id': user.id,
       'content': content,
+      'is_anonymous': finalAnonymous,
       'is_read': false,
     });
   }
@@ -331,7 +415,6 @@ class SupabaseService {
   Stream<int> getUnreadChatsCountStream() {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return Stream.value(0);
-
     return client.from('messages').stream(primaryKey: ['id']).map((messages) {
       final unreadChatIds = messages
           .where((m) => m['sender_id'] != myId && m['is_read'] == false)
@@ -344,7 +427,6 @@ class SupabaseService {
   Future<void> markMessagesAsRead(String chatId) async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return;
-
     await client
         .from('messages')
         .update({'is_read': true})
@@ -355,8 +437,6 @@ class SupabaseService {
   // ==========================================
   // BİLDİRİM MERKEZİ (HABERCİ) İŞLEMLERİ
   // ==========================================
-
-  // 1. Sağ üstteki zil ikonunda kaç okunmamış bildirim olduğunu canlı sayar
   Stream<int> getUnreadNotificationsCountStream() {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return Stream.value(0);
@@ -371,7 +451,6 @@ class SupabaseService {
         );
   }
 
-  // 2. Bildirimler sayfasına girildiğinde tüm bildirimleri listeler
   Stream<List<Map<String, dynamic>>> getNotificationsStream() {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return const Stream.empty();
@@ -386,7 +465,6 @@ class SupabaseService {
         );
   }
 
-  // 3. Bildirimler sayfasına girildiği an hepsini "okundu" (is_read = true) yapar
   Future<void> markAllNotificationsAsRead() async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return;
@@ -398,14 +476,12 @@ class SupabaseService {
         .eq('is_read', false);
   }
 
-  // 4. Biri beğeni/yorum yaptığında bildirim fırlatan gizli postacı
   Future<void> sendNotification({
     required String targetUserId,
     required String type,
     required String content,
   }) async {
     final myId = client.auth.currentUser?.id;
-    // Kişi kendi gönderisini beğenirse kendine bildirim atmasın diye kontrol:
     if (myId == null || myId == targetUserId) return;
 
     await client.from('notifications').insert({
@@ -424,7 +500,6 @@ class SupabaseService {
     DateTime now = DateTime.now();
     DateTime? fromDate;
 
-    // Filtreye göre başlangıç tarihini belirliyoruz
     if (filterType == 'daily') {
       fromDate = now.subtract(const Duration(days: 1));
     } else if (filterType == 'weekly') {
@@ -433,36 +508,27 @@ class SupabaseService {
       fromDate = now.subtract(const Duration(days: 30));
     }
 
-    // 1. ADIM: Sorguyu sadece tabloyu seçerek başlatıyoruz (Sıralama yok)
     var query = client.from('trending_posts').select();
-
-    // 2. ADIM: FİLTRELEME (Önce filtre eklenmek zorundadır)
     if (fromDate != null) {
       query = query.gte('created_at', fromDate.toIso8601String());
     }
 
-    // 3. ADIM: SIRALAMA VE LİMİT (En son eklenir ve çalıştırılır)
     final response = await query
-        .order('like_count', ascending: false) // En çok beğenilen en üstte
-        .order(
-          'created_at',
-          ascending: false,
-        ) // Beğeniler eşitse yeni olan üstte
-        .limit(50); // Performans için ilk 50'yi al
+        .order('like_count', ascending: false)
+        .order('created_at', ascending: false)
+        .limit(50);
 
     return List<Map<String, dynamic>>.from(response);
   }
+
   // ==========================================
   // ETİKET (HASHTAG) İŞLEMLERİ
   // ==========================================
-
-  // 1. En çok kullanılan 50 etiketi getirir
   Future<List<Map<String, dynamic>>> getTrendingHashtags() async {
     final response = await client.from('trending_hashtags').select();
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // 2. Sadece belirli bir etiketi (örn: #gölge) içeren gönderileri canlı getirir
   Stream<List<Map<String, dynamic>>> getPostsByHashtagStream(String hashtag) {
     return client
         .from('posts')
@@ -479,15 +545,12 @@ class SupabaseService {
   // ==========================================
   // TAKİP SİSTEMİ (FOLLOWERS)
   // ==========================================
-
-  // 1. Birini takip et veya takibi bırak
   Future<void> toggleFollow(String targetUserId) async {
     final myId = client.auth.currentUser?.id;
     if (myId == null || myId == targetUserId) {
-      return; // Kendimizi takip edemeyiz
+      return;
     }
 
-    // Önce takip edip etmediğimize bakıyoruz
     final existing = await client
         .from('followers')
         .select()
@@ -496,20 +559,16 @@ class SupabaseService {
         .maybeSingle();
 
     if (existing != null) {
-      // Zaten takip ediyorsa takipten çık (Sil)
       await client
           .from('followers')
           .delete()
           .eq('follower_id', myId)
           .eq('following_id', targetUserId);
     } else {
-      // Takip etmiyorsa listeye ekle
       await client.from('followers').insert({
         'follower_id': myId,
         'following_id': targetUserId,
       });
-
-      // BONUS: Karşı tarafa anında bildirim fırlatalım!
       await sendNotification(
         targetUserId: targetUserId,
         type: 'follow',
@@ -518,7 +577,6 @@ class SupabaseService {
     }
   }
 
-  // 2. Sadece benim takip ettiğim kişilerin ID'lerini getir
   Future<List<String>> getMyFollowingIds() async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return [];
@@ -527,15 +585,12 @@ class SupabaseService {
         .from('followers')
         .select('following_id')
         .eq('follower_id', myId);
-
     return response.map((e) => e['following_id'] as String).toList();
   }
 
   // ==========================================
   // GÜVENLİK VE MODERASYON (ŞİKAYET & ENGEL)
   // ==========================================
-
-  // 1. Gönderi Şikayet Etme
   Future<void> reportPost({
     required String postId,
     required String reason,
@@ -550,7 +605,6 @@ class SupabaseService {
     });
   }
 
-  // 2. Kullanıcı Engelleme
   Future<void> blockUser(String blockedUserId) async {
     final myId = client.auth.currentUser?.id;
     if (myId == null || myId == blockedUserId) return;
@@ -560,7 +614,6 @@ class SupabaseService {
       'blocked_id': blockedUserId,
     });
 
-    // Engelleyince otomatik olarak takipten de çıkalım (Varsa temizlik)
     await client
         .from('followers')
         .delete()
@@ -573,7 +626,6 @@ class SupabaseService {
         .eq('following_id', myId);
   }
 
-  // 3. Engeli Kaldırma
   Future<void> unblockUser(String blockedUserId) async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return;
@@ -585,12 +637,10 @@ class SupabaseService {
         .eq('blocked_id', blockedUserId);
   }
 
-  // 4. Engellediğim Kişilerin Listesini Getir
   Future<List<Map<String, dynamic>>> getBlockedUsers() async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return [];
 
-    // Önce engellediğim kişilerin ID'lerini çekiyorum
     final response = await client
         .from('blocks')
         .select('blocked_id')
@@ -599,20 +649,17 @@ class SupabaseService {
 
     if (blockedIds.isEmpty) return [];
 
-    // Bu ID'lere ait profil bilgilerini (isim, kullanıcı adı) getiriyorum
     final profiles = await client
         .from('profiles')
         .select()
-        .inFilter('id', blockedIds); // <- DOĞRUSU BU
+        .inFilter('id', blockedIds);
     return List<Map<String, dynamic>>.from(profiles);
   }
 
-  // 5. Karşılıklı Engel Kontrol Listesi (Akışta postları gizlemek için kullanacağız)
   Future<List<String>> getBlockListIds() async {
     final myId = client.auth.currentUser?.id;
     if (myId == null) return [];
 
-    // Hem benim engellediklerim hem de beni engelleyenler
     final myBlocks = await client
         .from('blocks')
         .select('blocked_id')

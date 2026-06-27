@@ -84,9 +84,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final fullName = profile != null
                     ? "${profile['first_name']} ${profile['last_name']}"
                     : "Gölge Kullanıcı";
+
                 final username = profile != null
                     ? "@${profile['username']}"
                     : "";
+
                 final bio = profile != null
                     ? profile['bio'] ?? "Henüz bir biyografi eklenmemiş."
                     : "Henüz bir biyografi eklenmemiş.";

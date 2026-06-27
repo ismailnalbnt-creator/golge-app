@@ -6,7 +6,8 @@ import 'radar_screen.dart';
 import 'inbox_screen.dart';
 import 'notifications_screen.dart';
 import 'trending_screen.dart';
-import 'hashtags_screen.dart'; // Etiketler ekranı bağlandı
+import 'hashtags_screen.dart';
+import 'search_screen.dart'; // YENİ ARAMA SAYFASI BAĞLANDI
 import '../services/supabase_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -99,6 +100,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // --- SAĞ ÜST KÖŞEDEKİ EYLEM BUTONLARI ---
         actions: [
+          // 0. YENİ ARAMA / KEŞFET İKONU (BÜYÜTEÇ)
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white, size: 26),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SearchScreen()),
+              );
+            },
+          ),
+
           // 1. ENLER / TRENDLER BUTONU (KUPA İKONU)
           IconButton(
             icon: const Icon(

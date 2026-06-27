@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
-// import 'profile_screen.dart'; // DİKKAT: Yönlendirilecek profil sayfasının importunu buraya ekle!
+import 'public_profile_screen.dart'; // Profil sayfasına yönlendirme için import eklendi
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -14,11 +14,262 @@ class _FeedScreenState extends State<FeedScreen> {
   final _supabaseService = SupabaseService();
   final _myUserId = Supabase.instance.client.auth.currentUser!.id;
 
-  // --- YENİ GÖNDERİ PAYLAŞMA PENCERESİ ---
+  // ==========================================
+  // CANLI YORUM PENCERESİ
+  // ==========================================
+  void _showCommentsModal(String postId) {
+    final commentController = TextEditingController();
+    bool isPosting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121212),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.65,
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 10),
+                      height: 4,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const Text(
+                      'YORUMLAR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const Divider(color: Colors.white10, height: 20),
+
+                    Expanded(
+                      child: StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _supabaseService.getCommentsStream(postId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.deepPurpleAccent,
+                              ),
+                            );
+                          }
+
+                          final comments = snapshot.data ?? [];
+                          if (comments.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'İlk yorumu sen yap!',
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: comments.length,
+                            itemBuilder: (context, index) {
+                              final comment = comments[index];
+                              final isAnon = comment['is_anonymous'] ?? false;
+                              final commentUserId = comment['user_id'];
+
+                              return FutureBuilder<Map<String, dynamic>?>(
+                                future: _supabaseService.getProfileById(
+                                  commentUserId,
+                                ),
+                                builder: (context, profSnap) {
+                                  final profile = profSnap.data;
+                                  final fullName = isAnon
+                                      ? 'Gölge Kullanıcı'
+                                      : "${profile?['first_name'] ?? ''} ${profile?['last_name'] ?? ''}";
+                                  final username = isAnon
+                                      ? ''
+                                      : "@${profile?['username'] ?? ''}";
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: isAnon
+                                              ? Colors.black
+                                              : const Color(0xFF1A1A1A),
+                                          child: Icon(
+                                            isAnon ? Icons.masks : Icons.person,
+                                            color: isAnon
+                                                ? Colors.white38
+                                                : Colors.tealAccent,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    fullName.trim().isEmpty
+                                                        ? "İsimsiz"
+                                                        : fullName,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  if (!isAnon &&
+                                                      username.length > 1)
+                                                    Text(
+                                                      username,
+                                                      style: const TextStyle(
+                                                        color: Colors.white38,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                comment['content'] ?? '',
+                                                style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.black,
+                        border: Border(top: BorderSide(color: Colors.white10)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: commentController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Yorum ekle...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white38,
+                                ),
+                                filled: true,
+                                fillColor: const Color(0xFF1A1A1A),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: isPosting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.deepPurpleAccent,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.send,
+                                    color: Colors.deepPurpleAccent,
+                                  ),
+                            onPressed: isPosting
+                                ? null
+                                : () async {
+                                    final text = commentController.text.trim();
+                                    if (text.isEmpty) return;
+
+                                    setModalState(() => isPosting = true);
+                                    try {
+                                      await _supabaseService.createComment(
+                                        postId,
+                                        text,
+                                      );
+                                      commentController.clear();
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text('Hata: $e')),
+                                        );
+                                      }
+                                    } finally {
+                                      if (context.mounted) {
+                                        setModalState(() => isPosting = false);
+                                      }
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // YENİ GÖNDERİ PAYLAŞMA PENCERESİ
+  // ==========================================
   void _showNewPostModal() {
     final postController = TextEditingController();
     bool isPosting = false;
-    bool isAnonymous = false; // YENİ EKLENDİ: Maske durumu
+    bool isAnonymous = false;
 
     showModalBottomSheet(
       context: context,
@@ -65,7 +316,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     maxLength: 280,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
-                      hintText: 'Neler düşünüyorsun? (Etiket için # kullan)',
+                      hintText: 'Neler düşünüyorsun?\n(Etiket için # kullan)',
                       hintStyle: TextStyle(color: Colors.white38),
                       border: InputBorder.none,
                       counterStyle: TextStyle(color: Colors.white38),
@@ -73,11 +324,9 @@ class _FeedScreenState extends State<FeedScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // ALT KISIM: MASKE İKONU VE PAYLAŞ BUTONU
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // GÖLGE MODU (MASKE) BUTONU EKLENDİ
                       Row(
                         children: [
                           IconButton(
@@ -90,8 +339,7 @@ class _FeedScreenState extends State<FeedScreen> {
                             ),
                             onPressed: () {
                               setModalState(() {
-                                isAnonymous =
-                                    !isAnonymous; // Maskeyi tak / çıkar
+                                isAnonymous = !isAnonymous;
                               });
                             },
                           ),
@@ -106,8 +354,6 @@ class _FeedScreenState extends State<FeedScreen> {
                             ),
                         ],
                       ),
-
-                      // PAYLAŞ BUTONU
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.deepPurpleAccent,
@@ -127,7 +373,6 @@ class _FeedScreenState extends State<FeedScreen> {
                                 if (text.isEmpty) return;
                                 setModalState(() => isPosting = true);
                                 try {
-                                  // isAnonymous değişkenini artık dinamik gönderiyoruz
                                   await _supabaseService.createPost(
                                     text,
                                     isAnonymous: isAnonymous,
@@ -252,7 +497,6 @@ class _FeedScreenState extends State<FeedScreen> {
             b['created_at'],
           ).compareTo(DateTime.parse(a['created_at'])),
         );
-
         return _buildPostList(posts);
       },
     );
@@ -330,7 +574,6 @@ class _FeedScreenState extends State<FeedScreen> {
                 b['created_at'],
               ).compareTo(DateTime.parse(a['created_at'])),
             );
-
             return _buildPostList(followingPosts);
           },
         );
@@ -367,7 +610,6 @@ class _FeedScreenState extends State<FeedScreen> {
             final postId = post['id'];
             final postUserId = post['user_id'];
             final isAnon = post['is_anonymous'] ?? false;
-
             return FutureBuilder<Map<String, dynamic>?>(
               future: _supabaseService.getProfileById(postUserId),
               builder: (context, profSnap) {
@@ -395,20 +637,18 @@ class _FeedScreenState extends State<FeedScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // --- YÖNLENDİRME KODU EKLENEN KISIM ---
                             GestureDetector(
+                              // --- TAMİR EDİLEN KISIM: ANONİM DEĞİLSE PROFİLE YÖNLENDİRİR ---
                               onTap: () {
                                 if (!isAnon) {
-                                  // Kendi profil sayfana gitme kodunu buraya yazdık!
-                                  // DİKKAT: ProfileScreen adı sende farklıysa (örn: UserProfileScreen) değiştir!
-                                  /*
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => ProfileScreen(userId: postUserId), 
+                                      builder: (context) => PublicProfileScreen(
+                                        userId: postUserId,
+                                      ),
                                     ),
                                   );
-                                  */
                                 }
                               },
                               child: Row(
@@ -455,7 +695,6 @@ class _FeedScreenState extends State<FeedScreen> {
                               ),
                             ),
 
-                            // ------------------------------------
                             Row(
                               children: [
                                 if (postUserId != _myUserId && !isAnon)
@@ -761,7 +1000,8 @@ class _FeedScreenState extends State<FeedScreen> {
                                         color: Colors.white38,
                                         size: 18,
                                       ),
-                                      onPressed: () {},
+                                      onPressed: () =>
+                                          _showCommentsModal(postId),
                                     ),
                                     Text(
                                       '${comments.length}',

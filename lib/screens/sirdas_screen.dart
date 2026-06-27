@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
-import 'public_profile_screen.dart';
 
 class SirdasScreen extends StatefulWidget {
   const SirdasScreen({super.key});
@@ -11,710 +10,692 @@ class SirdasScreen extends StatefulWidget {
 }
 
 class _SirdasScreenState extends State<SirdasScreen> {
-  final _postController = TextEditingController();
   final _supabaseService = SupabaseService();
+  final _myUserId = Supabase.instance.client.auth.currentUser!.id;
 
-  bool _isLoading = false;
-  bool _isAnonymous = true;
+  // ==========================================
+  // CANLI YORUM PENCERESİ (AŞAĞIDAN KAYARAK AÇILAN)
+  // ==========================================
+  void _showCommentsModal(String postId) {
+    final commentController = TextEditingController();
+    bool isPosting = false;
 
-  Future<void> _submitSir() async {
-    final content = _postController.text.trim();
-    if (content.isEmpty) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      await _supabaseService.createPost(
-        content,
-        isAnonymous: _isAnonymous,
-        postType: 'sirdas',
-      );
-      _postController.clear();
-      // ignore: use_build_context_synchronously
-      FocusScope.of(context).unfocus();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bgColor = _isAnonymous
-        ? const Color(0xFF040A0A)
-        : const Color(0xFFECEFF1);
-    final topAreaColor = _isAnonymous ? const Color(0xFF071212) : Colors.white;
-    final textColor = _isAnonymous ? Colors.white : Colors.black87;
-    final inputBgColor = _isAnonymous
-        ? const Color(0xFF0B1A1A)
-        : const Color(0xFFF8F9FA);
-    final hintColor = _isAnonymous ? Colors.white38 : Colors.black45;
-    // ignore: deprecated_member_use
-    final borderColor = _isAnonymous
-        // ignore: deprecated_member_use
-        ? Colors.teal.withOpacity(0.3)
-        : Colors.black12;
-
-    return Container(
-      color: bgColor,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: topAreaColor,
-              border: Border(bottom: BorderSide(color: borderColor, width: 2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.nights_stay,
-                      color: _isAnonymous ? Colors.tealAccent : Colors.teal,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'SIRDAŞ KÖŞESİ',
-                      style: TextStyle(
-                        color: _isAnonymous
-                            ? Colors.tealAccent
-                            : Colors.teal.shade800,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _postController,
-                  maxLength: 400,
-                  maxLines: 4,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    hintText: _isAnonymous
-                        ? 'Karanlığa bir sır bırak, dertleşelim...'
-                        : 'Açık kimliğinle bir meseleyi paylaş, fikir al...',
-                    hintStyle: TextStyle(color: hintColor),
-                    filled: true,
-                    fillColor: inputBgColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Switch(
-                          value: _isAnonymous,
-                          activeThumbColor: Colors.tealAccent,
-                          inactiveThumbColor: Colors.blueGrey,
-                          // ignore: deprecated_member_use
-                          inactiveTrackColor: Colors.blueGrey.withOpacity(0.3),
-                          onChanged: (value) {
-                            setState(() {
-                              _isAnonymous = value;
-                            });
-                          },
-                        ),
-                        Icon(
-                          _isAnonymous ? Icons.masks : Icons.face,
-                          color: _isAnonymous
-                              ? Colors.tealAccent
-                              : Colors.blueGrey,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isAnonymous ? 'Gizli Sır' : 'Açık Sır',
-                          style: TextStyle(
-                            color: _isAnonymous
-                                ? Colors.tealAccent
-                                : Colors.blueGrey,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isAnonymous
-                            ? Colors.teal.shade700
-                            : Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: _isLoading ? null : _submitSir,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Icon(
-                              _isAnonymous
-                                  ? Icons.volunteer_activism
-                                  : Icons.chat_bubble_outline,
-                              size: 16,
-                            ),
-                      label: const Text('İÇİNİ DÖK'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabaseService.getSirdasPostsStream(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Hata: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  );
-                }
-
-                final posts = snapshot.data;
-                if (posts == null || posts.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'Şu an burada paylaşılan bir sır yok.',
-                      style: TextStyle(
-                        color: hintColor,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    final bool isPostAnonymous = post['is_anonymous'] ?? false;
-
-                    final cardBgColor = isPostAnonymous
-                        ? const Color(0xFF081414)
-                        : Colors.white;
-                    // ignore: deprecated_member_use
-                    final cardBorderColor = isPostAnonymous
-                        // ignore: deprecated_member_use
-                        ? Colors.teal.withOpacity(0.3)
-                        : Colors.grey.shade400;
-                    final cardTextColor = isPostAnonymous
-                        ? Colors.white
-                        : Colors.black87;
-
-                    return Card(
-                      color: cardBgColor,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      elevation: isPostAnonymous ? 0 : 4,
-                      shadowColor: Colors.black26,
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: cardBorderColor, width: 1.5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            isPostAnonymous
-                                ? const Row(
-                                    children: [
-                                      Icon(
-                                        Icons.masks,
-                                        color: Colors.tealAccent,
-                                        size: 18,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Anonim Sır',
-                                        style: TextStyle(
-                                          color: Colors.tealAccent,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : FutureBuilder<Map<String, dynamic>?>(
-                                    future: _supabaseService.getProfileById(
-                                      post['user_id'],
-                                    ),
-                                    builder: (context, profileSnapshot) {
-                                      final profile = profileSnapshot.data;
-                                      final name = profile != null
-                                          ? "${profile['first_name']} ${profile['last_name']}"
-                                          : "Kullanıcı";
-                                      final username = profile != null
-                                          ? "@${profile['username']}"
-                                          : "";
-
-                                      return GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  PublicProfileScreen(
-                                                    userId: post['user_id'],
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                        child: Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.account_circle,
-                                              color: Colors.blueGrey,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              name,
-                                              style: const TextStyle(
-                                                color: Colors.black87,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              username,
-                                              style: const TextStyle(
-                                                color: Colors.blueGrey,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                            const SizedBox(height: 16),
-
-                            Text(
-                              post['content'] ?? '',
-                              style: TextStyle(
-                                color: cardTextColor,
-                                fontSize: 16,
-                                height: 1.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-                            const Divider(color: Colors.black12, height: 1),
-                            const SizedBox(height: 8),
-
-                            _SirdasPostFooter(
-                              postId: post['id'],
-                              isAnonymousCard: isPostAnonymous,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SirdasPostFooter extends StatelessWidget {
-  final String postId;
-  final bool isAnonymousCard;
-
-  const _SirdasPostFooter({
-    required this.postId,
-    required this.isAnonymousCard,
-  });
-
-  void _showSirdasCommentsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0B1A1A),
       isScrollControlled: true,
+      backgroundColor: const Color(
+        0xFF0A0A0A,
+      ), // Sırdaş'a özel daha derin siyah
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _SirdasCommentsBottomSheet(postId: postId),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final supabaseService = SupabaseService();
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    final textColor = isAnonymousCard ? Colors.white70 : Colors.black87;
-    // ignore: deprecated_member_use
-    final iconColor = isAnonymousCard
-        // ignore: deprecated_member_use
-        ? Colors.tealAccent.withOpacity(0.7)
-        : Colors.teal;
-
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabaseService.getVotesStream(postId),
-      builder: (context, snapshot) {
-        int supportVotes = 0;
-        int realisticVotes = 0;
-        int userVote = 0;
-
-        if (snapshot.hasData) {
-          for (var vote in snapshot.data!) {
-            if (vote['vote_type'] == 1) supportVotes++;
-            if (vote['vote_type'] == -1) realisticVotes++;
-            if (currentUser != null && vote['user_id'] == currentUser.id) {
-              userVote = vote['vote_type'];
-            }
-          }
-        }
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkWell(
-              onTap: () => supabaseService.castVote(postId, 1),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      userVote == 1
-                          ? Icons.volunteer_activism
-                          : Icons.volunteer_activism_outlined,
-                      color: userVote == 1 ? Colors.tealAccent : textColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$supportVotes Yanındayım',
-                      style: TextStyle(
-                        color: userVote == 1 ? Colors.tealAccent : textColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-            ),
-
-            Container(
-              width: 1,
-              height: 18,
-              color: isAnonymousCard ? Colors.white10 : Colors.black12,
-            ),
-
-            InkWell(
-              onTap: () => supabaseService.castVote(postId, -1),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                child: Row(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.65,
+                child: Column(
                   children: [
-                    Icon(
-                      userVote == -1 ? Icons.psychology : Icons.psychology_alt,
-                      color: userVote == -1 ? Colors.orangeAccent : textColor,
-                      size: 18,
+                    Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 10),
+                      height: 4,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$realisticVotes Gerçekçi Bak',
+                    const Text(
+                      'SIRDAŞ YORUMLARI',
                       style: TextStyle(
-                        color: userVote == -1 ? Colors.orangeAccent : textColor,
-                        fontSize: 12,
+                        color: Colors.tealAccent,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                    const Divider(color: Colors.white10, height: 20),
 
-            Container(
-              width: 1,
-              height: 18,
-              color: isAnonymousCard ? Colors.white10 : Colors.black12,
-            ),
-
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: supabaseService.getCommentsStream(postId),
-              builder: (context, commentSnapshot) {
-                final commentCount = commentSnapshot.data?.length ?? 0;
-                return InkWell(
-                  onTap: () => _showSirdasCommentsSheet(context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          color: iconColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$commentCount Fikir',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SirdasCommentsBottomSheet extends StatefulWidget {
-  final String postId;
-  const _SirdasCommentsBottomSheet({required this.postId});
-
-  @override
-  State<_SirdasCommentsBottomSheet> createState() =>
-      _SirdasCommentsBottomSheetState();
-}
-
-class _SirdasCommentsBottomSheetState
-    extends State<_SirdasCommentsBottomSheet> {
-  final _commentController = TextEditingController();
-  final _supabaseService = SupabaseService();
-
-  Future<void> _sendComment() async {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    try {
-      await _supabaseService.createComment(widget.postId, text);
-      _commentController.clear();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Yorum iletilemedi: $e')));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Fikirler ve Tavsiyeler',
-            style: TextStyle(
-              color: Colors.tealAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.4,
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabaseService.getCommentsStream(widget.postId),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.tealAccent),
-                  );
-                }
-
-                final comments = snapshot.data!;
-                if (comments.isEmpty) {
-                  // HATA DÜZELTİLDİ: textAlign: TextAlign.center olarak değiştirildi.
-                  return const Center(
-                    child: Text(
-                      'Bu sırra henüz kimse fikir belirtmedi. İlk tavsiyeyi sen ver.',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  itemCount: comments.length,
-                  itemBuilder: (context, index) {
-                    final comment = comments[index];
-                    return FutureBuilder<Map<String, dynamic>?>(
-                      future: _supabaseService.getProfileById(
-                        comment['user_id'],
-                      ),
-                      builder: (context, profileSnap) {
-                        final name =
-                            profileSnap.data?['first_name'] ?? 'Kullanıcı';
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const CircleAvatar(
-                                radius: 12,
-                                backgroundColor: Colors.white10,
-                                child: Icon(
-                                  Icons.person,
-                                  size: 14,
-                                  color: Colors.tealAccent,
-                                ),
+                    Expanded(
+                      child: StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: _supabaseService.getCommentsStream(postId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.tealAccent,
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
+                            );
+                          }
+
+                          final comments = snapshot.data ?? [];
+                          if (comments.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'Burada çok sessiz... İlk fısıldayan sen ol.',
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            );
+                          }
+
+                          return ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: comments.length,
+                            itemBuilder: (context, index) {
+                              final comment = comments[index];
+
+                              // Sırdaş sayfasında yorumların hepsi gölgedir, veritabanına bakmaya gerek yok!
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
+                                    const CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: Colors.black,
+                                      child: Icon(
+                                        Icons.masks,
                                         color: Colors.tealAccent,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                        size: 16,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      comment['content'] ?? '',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Gölge Kullanıcı',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            comment['content'] ?? '',
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.black,
+                        border: Border(top: BorderSide(color: Colors.white10)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: commentController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Anonim olarak yorumla...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white38,
+                                ),
+                                filled: true,
+                                fillColor: const Color(0xFF1A1A1A),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: isPosting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.tealAccent,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.send,
+                                    color: Colors.tealAccent,
+                                  ),
+                            onPressed: isPosting
+                                ? null
+                                : () async {
+                                    final text = commentController.text.trim();
+                                    if (text.isEmpty) return;
+
+                                    setModalState(() => isPosting = true);
+                                    try {
+                                      // Titanyum motor yorumu anında gölge olarak mühürler
+                                      await _supabaseService.createComment(
+                                        postId,
+                                        text,
+                                      );
+                                      commentController.clear();
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text('Hata: $e')),
+                                        );
+                                      }
+                                    } finally {
+                                      if (context.mounted) {
+                                        setModalState(() => isPosting = false);
+                                      }
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // ZORUNLU ANONİM PAYLAŞIM PENCERESİ
+  // ==========================================
+  void _showNewSirdasPostModal() {
+    final postController = TextEditingController();
+    bool isPosting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0A0A0A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'SIRDAŞA İÇİNİ DÖK',
+                        style: TextStyle(
+                          color: Colors.tealAccent,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: postController,
+                    maxLines: 5,
+                    maxLength:
+                        500, // Sırdaş'ta insanlar daha uzun dertleşebilir, limiti yüksek tuttuk
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: 'Kimse senin kim olduğunu bilmeyecek. Anlat...',
+                      hintStyle: TextStyle(color: Colors.white38),
+                      border: InputBorder.none,
+                      counterStyle: TextStyle(color: Colors.white38),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Burada maske değiştirme butonu YOK! Maske bu sayfada bedene yapışıktır.
+                      const Row(
+                        children: [
+                          Icon(Icons.masks, color: Colors.tealAccent, size: 24),
+                          SizedBox(width: 8),
+                          Text(
+                            '%100 Anonim',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Colors.tealAccent, // Sırdaş'a özel teal rengi
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: isPosting
+                            ? null
+                            : () async {
+                                final text = postController.text.trim();
+                                if (text.isEmpty) return;
+                                setModalState(() => isPosting = true);
+                                try {
+                                  // isAnonymous: true ve postType: 'sirdas' ZORUNLU
+                                  await _supabaseService.createPost(
+                                    text,
+                                    isAnonymous: true,
+                                    postType: 'sirdas',
+                                  );
+                                  if (context.mounted) Navigator.pop(context);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Hata: $e')),
+                                    );
+                                  }
+                                } finally {
+                                  if (context.mounted) {
+                                    setModalState(() => isPosting = false);
+                                  }
+                                }
+                              },
+                        child: isPosting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.black,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Fısılda',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000), // Tam siyah arkaplan
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text(
+          'SIRDAŞ',
+          style: TextStyle(
+            color: Colors.tealAccent,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 4,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(color: Colors.white10, height: 1),
+        ),
+      ),
+      body: FutureBuilder<List<String>>(
+        future: _supabaseService.getBlockListIds(),
+        builder: (context, blockSnap) {
+          final blockListIds = blockSnap.data ?? [];
+
+          return StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _supabaseService.getSirdasPostsStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Colors.tealAccent),
+                );
+              }
+
+              var allPosts = snapshot.data ?? [];
+              var visiblePosts = allPosts
+                  .where((p) => !blockListIds.contains(p['user_id']))
+                  .toList();
+
+              if (visiblePosts.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.nights_stay, color: Colors.white10, size: 64),
+                      SizedBox(height: 16),
+                      Text(
+                        'Karanlık çok sessiz...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.only(top: 8, bottom: 80),
+                itemCount: visiblePosts.length,
+                itemBuilder: (context, index) {
+                  final post = visiblePosts[index];
+                  final postId = post['id'];
+                  final postUserId = post['user_id'];
+
+                  return Card(
+                    color: const Color(0xFF0A0A0A),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(color: Colors.white10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: Colors.black,
+                                    child: Icon(
+                                      Icons.masks,
+                                      color: Colors.tealAccent,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    "Gölge Kullanıcı",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: Colors.white38,
+                                  size: 20,
+                                ),
+                                color: const Color(0xFF1A1A1A),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onSelected: (value) async {
+                                  if (value == 'report') {
+                                    final reasonController =
+                                        TextEditingController();
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        backgroundColor: const Color(
+                                          0xFF121212,
+                                        ),
+                                        title: const Text(
+                                          'Şikayet Et',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: TextField(
+                                          controller: reasonController,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            hintText: 'Sebep...',
+                                            hintStyle: TextStyle(
+                                              color: Colors.white38,
+                                            ),
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: const Text(
+                                              'İptal',
+                                              style: TextStyle(
+                                                color: Colors.white38,
+                                              ),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () async {
+                                              if (reasonController.text
+                                                  .trim()
+                                                  .isEmpty) {
+                                                return;
+                                              }
+                                              await _supabaseService.reportPost(
+                                                postId: postId,
+                                                reason: reasonController.text
+                                                    .trim(),
+                                              );
+                                              if (context.mounted) {
+                                                Navigator.pop(context);
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('İletildi.'),
+                                                    backgroundColor:
+                                                        Colors.teal,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            child: const Text(
+                                              'Gönder',
+                                              style: TextStyle(
+                                                color: Colors.tealAccent,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  } else if (value == 'block') {
+                                    await _supabaseService.blockUser(
+                                      postUserId,
+                                    );
+                                    setState(() {});
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  const PopupMenuItem<String>(
+                                    value: 'report',
+                                    child: Text(
+                                      'Şikayet Et',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                  ),
+                                  if (postUserId != _myUserId)
+                                    const PopupMenuItem<String>(
+                                      value: 'block',
+                                      child: Text(
+                                        'Kullanıcıyı Engelle',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-
-          const Divider(color: Colors.white10, height: 1),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Bir tavsiye veya destek yaz...',
-                      hintStyle: const TextStyle(color: Colors.white24),
-                      filled: true,
-                      fillColor: const Color(0xFF142424),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none,
+                          const SizedBox(height: 12),
+                          Text(
+                            post['content'] ?? '',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Divider(color: Colors.white10, height: 1),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              StreamBuilder<List<Map<String, dynamic>>>(
+                                stream: _supabaseService.getLikesStream(postId),
+                                builder: (context, likeSnapshot) {
+                                  final likes = likeSnapshot.data ?? [];
+                                  final isLiked = likes.any(
+                                    (l) => l['user_id'] == _myUserId,
+                                  );
+                                  return Row(
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: isLiked
+                                              ? Colors.redAccent
+                                              : Colors.white38,
+                                          size: 20,
+                                        ),
+                                        onPressed: () =>
+                                            _supabaseService.toggleLike(postId),
+                                      ),
+                                      Text(
+                                        '${likes.length}',
+                                        style: TextStyle(
+                                          color: isLiked
+                                              ? Colors.redAccent
+                                              : Colors.white38,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 24),
+                              StreamBuilder<List<Map<String, dynamic>>>(
+                                stream: _supabaseService.getCommentsStream(
+                                  postId,
+                                ),
+                                builder: (context, commentSnapshot) {
+                                  final comments = commentSnapshot.data ?? [];
+                                  return Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.chat_bubble_outline,
+                                          color: Colors.white38,
+                                          size: 18,
+                                        ),
+                                        onPressed: () =>
+                                            _showCommentsModal(postId),
+                                      ),
+                                      Text(
+                                        '${comments.length}',
+                                        style: const TextStyle(
+                                          color: Colors.white38,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.teal,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                    onPressed: _sendComment,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.tealAccent,
+        foregroundColor: Colors.black,
+        onPressed: _showNewSirdasPostModal,
+        child: const Icon(Icons.edit),
       ),
     );
   }

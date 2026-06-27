@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
+import 'post_detail_screen.dart'; // Yeni Gönderi Detay Sayfası Bağlandı
+import 'public_profile_screen.dart'; // Kişi Profili Bağlandı
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -76,6 +78,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               final isRead = notification['is_read'] ?? true;
               final type = notification['type'] ?? 'info';
 
+              // Veritabanındaki yönlendirme anahtarları çekiliyor
+              final postId = notification['post_id'];
+              final senderId =
+                  notification['sender_id'] ?? notification['actor_id'];
+
               // Bildirim tipine göre ikon ve renk belirliyoruz
               IconData iconData;
               Color iconColor;
@@ -131,6 +138,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           radius: 4,
                           backgroundColor: Colors.deepPurpleAccent,
                         ), // Okunmamışsa küçük mor nokta koy
+                  // --- TIKLANABİLİR YÖNLENDİRME KÖPRÜSÜ (YENİ EKLENDİ) ---
+                  onTap: () {
+                    if (postId != null) {
+                      // 1. Durum: Bildirim bir gönderiyle ilgiliyse (beğeni, yorum vs.) Gönderi Detayına fırlat
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PostDetailScreen(postId: postId),
+                        ),
+                      );
+                    } else if (senderId != null) {
+                      // 2. Durum: Sadece bir kullanıcıyla ilgiliyse (örn: yeni takipçi) Profiline fırlat
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PublicProfileScreen(userId: senderId),
+                        ),
+                      );
+                    }
+                  },
                 ),
               );
             },

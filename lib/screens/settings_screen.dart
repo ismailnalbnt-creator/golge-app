@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'block_list_screen.dart';
-// import 'login_screen.dart'; // Çıkış yaptıktan sonra yönlendirmek için kendi giriş sayfanı buraya ekle
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,13 +16,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isRadarVisible = true;
   bool _isLoading = true;
 
+  // Profil düzenleme bilgileri için saklanan eyalet (state) değişkenleri
+  String _firstName = '';
+  String _lastName = '';
+  String _username = '';
+  String _bio = '';
+  DateTime? _birthDate;
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
   }
 
-  // Veritabanından kullanıcının mevcut ayarlarını çekiyoruz
+  // Veritabanından kullanıcının tüm mevcut ayarlarını ve kişisel bilgilerini çekiyoruz
   Future<void> _loadSettings() async {
     final myId = _client.auth.currentUser?.id;
     if (myId == null) return;
@@ -34,11 +40,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .select()
           .eq('id', myId)
           .maybeSingle();
+
       if (profile != null) {
         setState(() {
-          // Eğer veritabanında bu sütunlar null ise varsayılan değerleri atıyoruz
           _isShadowMode = profile['is_shadow_mode'] ?? false;
           _isRadarVisible = profile['is_radar_visible'] ?? true;
+          _firstName = profile['first_name'] ?? '';
+          _lastName = profile['last_name'] ?? '';
+          _username = profile['username'] ?? '';
+          _bio = profile['bio'] ?? '';
+          _birthDate = profile['birth_date'] != null
+              ? DateTime.parse(profile['birth_date'])
+              : null;
         });
       }
     } catch (e) {
@@ -68,12 +81,226 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _signOut() async {
     await _client.auth.signOut();
     if (mounted) {
-      // Çıkış yapınca tüm sayfaları kapatıp Giriş ekranına fırlatıyoruz
-      // Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
-
-      // *Geçici olarak sadece bir önceki ekrana dönmesi için (Login ekranını bağlayınca üstteki kodu açarsın):
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
+  }
+
+  // ==========================================
+  // YENİ EKLENEN: KİŞİSEL BİLGİLERİ DÜZENLEME PANELİ
+  // ==========================================
+  void _showEditProfileDialog() {
+    final firstNameController = TextEditingController(text: _firstName);
+    final lastNameController = TextEditingController(text: _lastName);
+    final usernameController = TextEditingController(text: _username);
+    final bioController = TextEditingController(text: _bio);
+    DateTime? tempBirthDate = _birthDate;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121212),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Profil Bilgilerini Düzenle',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: firstNameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Ad',
+                        labelStyle: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurpleAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: lastNameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Soyad',
+                        labelStyle: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurpleAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: usernameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Kullanıcı Adı',
+                        labelStyle: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurpleAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: bioController,
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Biyografi',
+                        labelStyle: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.deepPurpleAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Doğum Tarihi',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        tempBirthDate == null
+                            ? 'Seçilmedi'
+                            : '${tempBirthDate!.day}/${tempBirthDate!.month}/${tempBirthDate!.year}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white54,
+                        size: 18,
+                      ),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: tempBirthDate ?? DateTime(2000),
+                          firstDate: DateTime(1950),
+                          lastDate: DateTime.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Colors.deepPurpleAccent,
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF1E1E1E),
+                                  onSurface: Colors.white,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setDialogState(() => tempBirthDate = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text(
+                    'İptal',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                ),
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (usernameController.text.trim().isEmpty) return;
+                          setDialogState(() => isSaving = true);
+                          try {
+                            final myId = _client.auth.currentUser!.id;
+                            await _client
+                                .from('profiles')
+                                .update({
+                                  'first_name': firstNameController.text.trim(),
+                                  'last_name': lastNameController.text.trim(),
+                                  'username': usernameController.text.trim(),
+                                  'bio': bioController.text.trim(),
+                                  'birth_date': tempBirthDate
+                                      ?.toIso8601String(),
+                                })
+                                .eq('id', myId);
+
+                            await _loadSettings(); // Ayarları ve yerel state'i yenile
+                            if (context.mounted) Navigator.pop(context);
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Hata: $e')),
+                              );
+                            }
+                          } finally {
+                            setDialogState(() => isSaving = false);
+                          }
+                        },
+                  child: const Text(
+                    'Kaydet',
+                    style: TextStyle(
+                      color: Colors.deepPurpleAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -174,10 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _isRadarVisible,
                         onChanged: (value) {
                           setState(() => _isRadarVisible = value);
-                          _updateSetting(
-                            'is_radar_visible',
-                            value,
-                          ); // *Not: Veritabanında is_radar_visible sütunu olmalı
+                          _updateSetting('is_radar_visible', value);
                         },
                       ),
                       const Divider(color: Colors.white10, height: 1),
@@ -231,6 +455,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: const Color(0xFF121212),
                   child: Column(
                     children: [
+                      // PROFİLİ DÜZENLE SEÇENEĞİ (MENÜ OLARAK EKLENDİ)
+                      ListTile(
+                        leading: const Icon(
+                          Icons.person_outline,
+                          color: Colors.white54,
+                          size: 22,
+                        ),
+                        title: const Text(
+                          'Profil Bilgilerini Düzenle',
+                          style: TextStyle(color: Colors.white, fontSize: 15),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white38,
+                        ),
+                        onTap: _showEditProfileDialog,
+                      ),
+                      const Divider(color: Colors.white10, height: 1),
+
                       // ÇIKIŞ YAP BUTONU
                       ListTile(
                         leading: const Icon(
@@ -247,7 +490,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         onTap: () {
-                          // Kullanıcıya Emin Misin sorusu soralım
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -276,8 +518,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.pop(context); // Diyaloğu kapat
-                                    _signOut(); // Çıkış yap
+                                    Navigator.pop(context);
+                                    _signOut();
                                   },
                                   child: const Text(
                                     'Çıkış Yap',

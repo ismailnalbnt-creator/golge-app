@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
+import 'public_profile_screen.dart'; // PROFİLE YÖNLENDİRME İÇİN EKLENDİ
 
 class TrendingScreen extends StatefulWidget {
   const TrendingScreen({super.key});
@@ -63,6 +64,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
               child: Row(
                 children: _filters.entries.map((entry) {
                   final isSelected = _selectedFilter == entry.value;
+
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ChoiceChip(
@@ -125,6 +127,8 @@ class _TrendingScreenState extends State<TrendingScreen> {
                   itemBuilder: (context, index) {
                     final post = posts[index];
                     final isAnonymous = post['is_anonymous'] ?? false;
+                    final postUserId =
+                        post['user_id']; // Yönlendirme için ID çekildi
 
                     final fullName = isAnonymous
                         ? 'Gölge Kullanıcı'
@@ -151,47 +155,63 @@ class _TrendingScreenState extends State<TrendingScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 14,
-                                      backgroundColor: isAnonymous
-                                          ? Colors.black
-                                          : const Color(0xFF1A1A1A),
-                                      child: Icon(
-                                        isAnonymous
-                                            ? Icons.masks
-                                            : Icons.person,
-                                        color: isAnonymous
-                                            ? Colors.white38
-                                            : Colors.tealAccent,
-                                        size: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          fullName,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
+                                // --- TIKLANABİLİR PROFİL ALANI ---
+                                GestureDetector(
+                                  onTap: () {
+                                    if (!isAnonymous && postUserId != null) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              PublicProfileScreen(
+                                                userId: postUserId,
+                                              ),
                                         ),
-                                        if (!isAnonymous)
+                                      );
+                                    }
+                                  },
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: isAnonymous
+                                            ? Colors.black
+                                            : const Color(0xFF1A1A1A),
+                                        child: Icon(
+                                          isAnonymous
+                                              ? Icons.masks
+                                              : Icons.person,
+                                          color: isAnonymous
+                                              ? Colors.white38
+                                              : Colors.tealAccent,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
                                           Text(
-                                            username,
+                                            fullName,
                                             style: const TextStyle(
-                                              color: Colors.white38,
-                                              fontSize: 11,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                  ],
+                                          if (!isAnonymous)
+                                            Text(
+                                              username,
+                                              style: const TextStyle(
+                                                color: Colors.white38,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 // 1., 2. ve 3. olanlara özel taç / madalya ikonu
                                 if (index == 0)
