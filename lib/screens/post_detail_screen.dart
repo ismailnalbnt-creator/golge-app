@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../widgets/smart_text.dart'; // AKILLI METİN MOTORU EKLENDİ
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
@@ -30,7 +31,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .select()
           .eq('id', widget.postId)
           .maybeSingle();
-
+          
       if (mounted) {
         setState(() {
           _post = data;
@@ -48,24 +49,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFF0A0A0A),
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.deepPurpleAccent),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent)),
       );
     }
 
     if (_post == null) {
       return Scaffold(
         backgroundColor: const Color(0xFF0A0A0A),
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          title: const Text('GÖNDERİ'),
-        ),
+        appBar: AppBar(backgroundColor: Colors.black, title: const Text('GÖNDERİ')),
         body: const Center(
-          child: Text(
-            'Bu gönderi silinmiş veya bulunamadı.',
-            style: TextStyle(color: Colors.white38),
-          ),
+          child: Text('Bu gönderi silinmiş veya bulunamadı.', style: TextStyle(color: Colors.white38)),
         ),
       );
     }
@@ -77,15 +70,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text(
-          'GÖNDERİ DETAYI',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
+        title: const Text('GÖNDERİ DETAYI', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1)),
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
       ),
@@ -108,9 +93,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: isAnon
-                            ? Colors.black
-                            : const Color(0xFF1A1A1A),
+                        backgroundColor: isAnon ? Colors.black : const Color(0xFF1A1A1A),
                         child: Icon(
                           isAnon ? Icons.masks : Icons.person,
                           color: isAnon ? Colors.white38 : Colors.tealAccent,
@@ -119,24 +102,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       ),
                       const SizedBox(width: 10),
                       const Text(
-                        'Gönderi Sahibi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
+                        'Gönderi Sahibi', 
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    content,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
+                  
+                  // DETAY SAYFASI GÖNDERİ METNİ İÇİN AKILLI METİN
+                  SmartText(
+                    text: content,
+                    style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
                   ),
+                  
                 ],
               ),
             ),
@@ -146,42 +124,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                'YORUMLAR',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 1,
-                ),
-              ),
+              child: Text('YORUMLAR', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1)),
             ),
           ),
-
+          
           // --- YORUMLAR LİSTESİ (CANLI) ---
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _supabaseService.getCommentsStream(widget.postId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.deepPurpleAccent,
-                    ),
-                  );
+                  return const Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent));
                 }
-
+                
                 final comments = snapshot.data ?? [];
                 if (comments.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'İlk yorumu sen yap!',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
+                  return const Center(child: Text('İlk yorumu sen yap!', style: TextStyle(color: Colors.white38, fontStyle: FontStyle.italic)));
                 }
 
                 return ListView.builder(
@@ -192,18 +150,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       leading: const CircleAvatar(
                         backgroundColor: Color(0xFF1A1A1A),
                         radius: 14,
-                        child: Icon(
-                          Icons.person,
-                          color: Colors.white38,
-                          size: 16,
-                        ),
+                        child: Icon(Icons.person, color: Colors.white38, size: 16),
                       ),
-                      title: Text(
-                        comment['content'] ?? '',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
+                      // DETAY SAYFASI YORUMLARI İÇİN AKILLI METİN
+                      title: SmartText(
+                        text: comment['content'] ?? '', 
+                        style: const TextStyle(color: Colors.white70, fontSize: 13)
                       ),
                     );
                   },

@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\hp\Desktop\golge\golge-app\build\windows\x64\CMakeFiles\d8de3374919f65dfa9820ca3d6a8fbfc\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{94DCAB9F-5ECA-3BDB-98D3-05F3158C0C87}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

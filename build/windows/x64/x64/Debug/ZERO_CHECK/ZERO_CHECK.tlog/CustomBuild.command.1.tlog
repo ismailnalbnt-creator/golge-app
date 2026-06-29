@@ -1,0 +1,10 @@
+^C:\USERS\HP\DESKTOP\GOLGE\GOLGE-APP\BUILD\WINDOWS\X64\CMAKEFILES\D8DE3374919F65DFA9820CA3D6A8FBFC\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/hp/Desktop/golge/golge-app/windows -BC:/Users/hp/Desktop/golge/golge-app/build/windows/x64 --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/golge_app.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

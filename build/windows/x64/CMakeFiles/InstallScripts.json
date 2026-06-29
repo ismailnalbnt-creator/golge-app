@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/cmake_install.cmake",
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/flutter/cmake_install.cmake",
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/runner/cmake_install.cmake",
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/plugins/app_links/cmake_install.cmake",
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/plugins/passkeys_windows/cmake_install.cmake",
+		"C:/Users/hp/Desktop/golge/golge-app/build/windows/x64/plugins/url_launcher_windows/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
